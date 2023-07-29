@@ -15,16 +15,24 @@
     "node": ">=14.16"
   },
   "imports": {
-    "#http/*": "./dist/core/http/*.js",
-    "#ws/*": "./dist/core/websocket/*.js",
-    "#utils/*": "./dist/core/utils/*.js",
+    "#http/*": "./dist/http/*.js",
+    "#ws/*": "./dist/websocket/*.js",
+    "#utils/*": "./dist/utils/*.js",
     "#config/*": "./dist/config/*.js",
     "#models/*": "./dist/app/models/*.js",
     "#services/*": "./dist/app/services/*.js",
     "#common/*": "./dist/app/common/*.js",
-    "#container": "./dist/core/dependency_injection/container.js",
-    "#container/*": "./dist/core/dependency_injection/*.js",
+    "#container": "./dist/dependency_injection/container.js",
+    "#container/*": "./dist/dependency_injection/*.js",
     "#logger": "./dist/core/logger/logger.js"
+  },
+  "exports" : {
+    "." : "./dist/index.js",
+    "./http" : "./dist/http/index.js",
+    "./logger" : "./dist/logger/logger.js",
+    "./utils" : "./dist/utils/index.js",
+    "./ws" : "./dist/ws/index.js",
+    "./type" : "./dist/typebox/index.js"
   },
   "keywords": [
     "REST",

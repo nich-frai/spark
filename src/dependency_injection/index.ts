@@ -1,0 +1,1 @@
+export { type AwilixContainer, type Resolver, createContainer} from 'awilix';

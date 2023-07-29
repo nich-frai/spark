@@ -8,18 +8,18 @@
     ],
     "useDefineForClassFields": true,
     "module": "es2022",
-    "rootDir": "./src",
+    "rootDir": "./",
     "moduleResolution": "node",
-    "baseUrl": "./src",
+    "baseUrl": "./",
     "paths": {
       "#http/*": [
-        "core/http/*"
+        "src/http/*"
       ],
       "#ws/*": [
-        "core/websocket/*"
+        "src/websocket/*"
       ],
       "#utils/*": [
-        "core/utils/*"
+        "src/utils/*"
       ],
       "#config/*": [
         "config/*"
@@ -34,13 +34,10 @@
         "app/common/*"
       ],
       "#container": [
-        "core/dependency_injection/container.js"
-      ],
-      "#container/*": [
-        "core/dependency_injection/*"
+        "src/dependency_injection/index.js"
       ],
       "#logger": [
-        "core/logger/logger.js"
+        "src/logger/logger.js"
       ],
       "#test/*" : ["test/*"]
     },
@@ -50,9 +47,9 @@
     "sourceMap": true,
     "outDir": "./dist",
     "removeComments": true,
-    "importsNotUsedAsValues": "error",
     "isolatedModules": true,
     "allowSyntheticDefaultImports": true,
+    "verbatimModuleSyntax": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
@@ -63,7 +60,8 @@
     "skipLibCheck": true
   },
   "include": [
-    "src"
+    "src/**/*.ts",
+    "examples/**/*.ts"
   ],
   "exclude": [
     "prisma",
