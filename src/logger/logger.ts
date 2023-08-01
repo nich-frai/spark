@@ -1,138 +1,169 @@
-import { createContainer } from "#container";
-import { asValue, type AwilixContainer } from "awilix";
-import pino from "pino";
-import { default as kleur, type Kleur } from "kleur";
+import { pino, type Logger, type LoggerOptions } from "pino";
+import { default as kleur } from "kleur";
+import { prettyPrintJson } from "#utils/pretty_json";
 
-export const DefaultLoggerConfiguration = {
-  targets: [
-    {
-      target: "pino/file",
-      options: {
-        destination: "./application.log",
-      },
-      level: "trace",
-    },
-    {
-      target: "pino/file",
-      options: {
-        destination: "./errors.log",
-      },
-      level: "error",
-    },
-  ],
-};
+export interface TLogger {
+  name: string;
 
-export type TLoggerConfiguration = typeof DefaultLoggerConfiguration;
+  child(name?: string): TLogger;
 
-const rootContainer = createContainer();
-rootContainer.register(
-  "loggerConfiguration",
-  asValue(DefaultLoggerConfiguration)
-);
-
-let p: pino.Logger;
-export function getPino(container?: AwilixContainer) {
-  if (p == null) {
-    const config = (container ?? rootContainer).resolve<TLoggerConfiguration>(
-      "loggerConfiguration"
-    );
-    const loggerTransports = pino.transport(config);
-    p = pino(loggerTransports);
-  }
-  return p;
+  debug(msg: string, ...args: unknown[]): void;
+  trace(msg: string, ...args: unknown[]): void;
+  info(msg: string, ...args: unknown[]): void;
+  warn(msg: string, ...args: unknown[]): void;
+  error(msg: string, ...args: unknown[]): void;
+  fatal(msg: string, ...args: unknown[]): void;
 }
 
-export class Logger {
-
+export class PinoLogger implements TLogger {
   private static devOutput: boolean = false;
 
   static enableDevOutput() {
-    Logger.devOutput = true;
+    PinoLogger.devOutput = true;
   }
 
-  static disableDevOutpu() {
-    Logger.devOutput = false;
+  static disableDevOutput() {
+    PinoLogger.devOutput = false;
   }
 
-  #color!: Kleur;
+  private _pino: Logger = pino();
 
-  private get color() {
-    if (this.#color == null) {
-      this.#color = kleur;
+  name: string = "Logger";
+
+  constructor(options?: TLoggerCreationOptions | false) {
+    if (options !== false) {
+      this._pino = pino({
+        ...DefaultPinoLoggerOptions,
+        ...options,
+      });
+      this.name = options?.name ?? "Logger";
     }
-    return this.#color!;
   }
 
-  #pino: pino.Logger;
-
-
-  constructor(private name: string) {
-    this.#pino = getPino();
+  child(name?: string) {
+    const newLogger = new PinoLogger(false);
+    newLogger._pino = this._pino.child({});
+    if (name != null) newLogger.name = name;
+    return newLogger;
   }
 
-  log(msg: string, ...objs: unknown[]) {
-    this.#pino.info(`[${this.color.bold(this.name)}] ${msg}`, ...objs);
+  debug(msg: string, ...args: unknown[]): void {
+    this._pino.debug(
+      args[0] ?? {},
+      `[${this.name}]${msg != null ? ` -> ${msg}` : ""}`,
+      ...args
+    );
 
-    if (Logger.devOutput) {
+    if (PinoLogger.devOutput) {
       this.dev(
-        `[${this.color.bold(this.name)}] (${this.displayTime()}) 📰 ${this.color
-          .blue()
-          .bold("INFO")}\n| ${msg}`,
-        ...objs
+        `${kleur.dim().gray(`[${this.displayTime()}]`)} ${kleur
+          .white()
+          .bold("DEBUG")} ${kleur.reset().underline(this.name)} \n${msg}`,
+        ...args
       );
     }
   }
 
-  info(msg: string, ...objs: unknown[]) {
-    this.log(msg, ...objs);
+  trace(msg: string, ...args: unknown[]): void {
+    this._pino.trace(
+      args[0] ?? {},
+      `[${this.name}]${msg != null ? ` -> ${msg}` : ""}`,
+      ...args
+    );
+
+    if (PinoLogger.devOutput) {
+      this.dev(
+        `${kleur.dim().gray(`[${this.displayTime()}]`)} ➡️ ${kleur
+          .gray()
+          .bold("TRACE")} ${kleur.reset().underline(this.name)} \n${msg}`,
+        ...args
+      );
+    }
   }
 
-  warn(msg: string, ...objs: unknown[]) {
-    this.#pino.warn(`[${this.color.bold(this.name)}] ${msg}`, ...objs);
-
-    this.dev(
-      `[${this.color.bold(this.name)}] (${this.displayTime()}) ⚠️ ${this.color
-        .yellow()
-        .bold("WARN")}\n| ${msg}`,
-      ...objs
+  info(msg: string, ...args: unknown[]): void {
+    this._pino.info(
+      args[0] ?? {},
+      `[${this.name}]${msg != null ? ` -> ${msg}` : ""}`,
+      ...args
     );
+
+    if (PinoLogger.devOutput) {
+      this.dev(
+        `${kleur.dim().gray(`[${this.displayTime()}]`)} ${kleur
+          .white()
+          .bold("INFO ")} ${kleur.reset().underline(this.name)} \n${msg}`,
+        ...args
+      );
+    }
   }
 
-  error(msg: string, ...objs: unknown[]) {
-    this.#pino.warn(`[${this.color.bold(this.name)}] ${msg}`, ...objs);
-
-    this.dev(
-      `[${this.color.bold(this.name)}] (${this.displayTime()}) 🚨 ${this.color
-        .red()
-        .bold("ERROR")}\n| ${msg}`,
-      ...objs
+  warn(msg: string, ...args: unknown[]): void {
+    this._pino.warn(
+      args[0] ?? {},
+      `[${this.name}]${msg != null ? ` -> ${msg}` : ""}`,
+      ...args
     );
+
+    if (PinoLogger.devOutput) {
+      this.dev(
+        `${kleur.dim().gray(`[${this.displayTime()}]`)} ${kleur
+          .yellow()
+          .bold("WARN ")} ${kleur.reset().underline(this.name)} ⚠️ \n${msg}`,
+        ...args
+      );
+    }
   }
 
-  fatal(msg: string, ...objs: unknown[]) {
-    this.#pino.fatal(`[${this.color.bold(this.name)}] ${msg}`, ...objs);
-
-    this.dev(
-      `[${this.color.bold(this.name)}] (${this.displayTime()}) 🧟 ${this.color
-        .red()
-        .bold("FATAL")}\n| ${msg}`,
-      ...objs
+  error(msg: string, ...args: unknown[]): void {
+    this._pino.error(
+      args[0] ?? {},
+      `[${this.name}]${msg != null ? ` -> ${msg}` : ""}`,
+      ...args
     );
+
+    if (PinoLogger.devOutput) {
+      this.dev(
+        `${kleur.dim().gray(`[${this.displayTime()}]`)} ${kleur
+          .white()
+          .bold("ERROR")} ${kleur.reset().underline(this.name)} 🚨\n${msg}`,
+        ...args
+      );
+    }
+  }
+
+  fatal(msg: string, ...args: unknown[]): void {
+    this._pino.fatal(
+      args[0] ?? {},
+      `[${this.name}]${msg != null ? ` -> ${msg}` : ""}`,
+      ...args
+    );
+
+    if (PinoLogger.devOutput) {
+      this.dev(
+        `${kleur.dim().gray(`[${this.displayTime()}]`)} ${kleur
+          .white()
+          .bold("FATAL")} ${kleur.reset().underline(this.name)} 💀\n${msg}`,
+        ...args
+      );
+    }
   }
 
   dev(msg: string, ...objs: unknown[]) {
-
-    if (Logger.devOutput) {
-      process.stdout.write(kleur!.bold(msg) + "\n");
-      objs.forEach((o) => {
+    if (PinoLogger.devOutput) {
+      process.stdout.write(kleur.bold(msg) + "\n");
+      objs.forEach((o, i) => {
         let out = prettyPrintJson(o);
         if (process.stdout.columns ?? 100 > inlineOutput(out).length) {
-          process.stdout.write("| - " + inlineOutput(out));
+          process.stdout.write(
+            (i === objs.length - 1 ? "└─ " : "├─ ") + inlineOutput(out)
+          );
         } else {
           process.stdout.write(out);
         }
         process.stdout.write("\n");
       });
+      if (objs.length > 0) process.stdout.write("\n");
     }
   }
 
@@ -155,133 +186,20 @@ function inlineOutput(out: string) {
     .replace(/(\[|{)\s+/gm, "$1");
 }
 
-export function prettyPrintJson(value: any, depth = 0, inline = false) {
-  let outBuffer: string = "";
+export type TLoggerCreationOptions = LoggerOptions & { name: string };
 
-  const print = (str: string) => {
-    outBuffer += str;
-    return outBuffer;
-  };
-
-  if (depth > 10) {
-    return outBuffer;
-  }
-
-  const str = kleur.green;
-  const sym = kleur.yellow;
-  const num = kleur.magenta;
-  const date = (d: Date) => {
-    return print(
-      kleur!.bold().red("Date(") +
-        kleur!.white('"' + d.toString() + '"') +
-        kleur!.bold().red(")")
-    );
-  };
-
-  // TODO: colorize functions, arrays, classes and so on
-  const arr = (arr: unknown[]) => {
-    const jumpWhen = 5;
-    print(kleur!.yellow("[ "));
-    const multilinePrint = arr.length >= jumpWhen;
-    multilinePrint && print("\n");
-
-    arr.forEach((v, i) => {
-      const shouldJump = i % jumpWhen === jumpWhen - 1;
-      const justJumped = i % jumpWhen === 0;
-
-      multilinePrint && justJumped && print(" ".repeat((1 + depth) * 2));
-      print(prettyPrintJson(v, depth + 1, true));
-      print(", ");
-      multilinePrint && shouldJump && print("\n");
-    });
-    multilinePrint && print("\n" + " ".repeat(depth * 2));
-    return print(kleur!.yellow("]"));
-  };
-
-  const obj = (obj: Record<string | number | symbol, unknown>, depth = 0) => {
-    print(kleur!.blue("{ "));
-    inline || print("\n");
-
-    // print regular keys
-    Object.entries(obj).forEach(([k, v]) => {
-      // print tab
-      inline || print(" ".repeat(2 * (depth + 1)));
-      // print key
-      print(typeof k === "number" ? `${kleur!.bold(k)}: ` : `"${k}": `);
-      // print value
-      print(prettyPrintJson(v, depth + 1, inline));
-      print(", ");
-      // jump a line
-      inline || print("\n");
-    });
-
-    // print symbol keys
-    Object.getOwnPropertySymbols(obj).forEach((s) => {
-      const v = obj[s];
-      // print tab
-      inline || print(" ".repeat(2 * (depth + 1)));
-      // print key
-      print(`[${sym(s.description ?? "symbol|description")}(symbol)]: `);
-      // print value
-      print(prettyPrintJson(v, depth + 1, inline));
-      // jump a line
-      print(",\n");
-    });
-    // print tab
-    inline || print(" ".repeat(2 * depth));
-    return print(kleur!.blue("}"));
-  };
-
-  // TODO: pretty print function signature
-  const fun = (str: string) => {
-    return print(str + "\n");
-  };
-
-  // TODO: detect and pretty print class signatures
-  const clas = (str: string) => {};
-
-  if (typeof value === "string") {
-    if (depth === 0) return print(value);
-    return print('"' + str(value) + '"');
-  }
-
-  if (typeof value === "number") {
-    return print(num(value));
-  }
-
-  if (value === undefined) {
-    return print(num("undefined"));
-  }
-
-  if (value === null) {
-    return print(num("undefined"));
-  }
-
-  if (typeof value === "object") {
-    // is array?
-    if (Array.isArray(value)) {
-      return arr(value);
-    }
-
-    // is date°
-    if (value instanceof Date) {
-      return date(value);
-    }
-
-    return obj(value, depth);
-  }
-
-  if (typeof value === "function") {
-    return fun(value.toString());
-  }
-
-  if (typeof value === "boolean") {
-    return print(kleur!.cyan(value ? "true" : "false"));
-  }
-
-  if (typeof value === "symbol") {
-    return print(`[${sym(value.description ?? "symbol|description")}(symbol)]`);
-  }
-
-  return outBuffer;
-}
+const DefaultPinoLoggerOptions: TLoggerCreationOptions = {
+  name: "Logger",
+  level: "info",
+  transport: {
+    targets: [
+      {
+        target: "pino/file",
+        level: "warn",
+        options: {
+          destination: "app_error.log",
+        },
+      },
+    ],
+  },
+};

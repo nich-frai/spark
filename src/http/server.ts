@@ -1,175 +1,190 @@
-import { createContainer } from "#container";
-import { Logger } from "#logger";
-import { InjectionMode, type AwilixContainer } from "awilix";
-import createRouter, { type HTTPMethod } from 'find-my-way';
-import { createServer, type Server } from 'node:http';
-import { createServer as createSSLServer, type Server as SSLServer } from 'node:https';
-import { HTTPHandler } from "./handler.js";
-import type { HTTPRoute } from "./route.js";
-import { HTTPRouter } from "./router.js";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import {
+  default as createRouter,
+  type Req,
+  type HTTPVersion,
+  type Instance as LookupRouter,
+  type Config as RouterConfig,
+  type Res,
+  type HTTPMethod,
+} from "find-my-way";
+import { Router } from "./router.js";
+import { type AwilixContainer, createContainer, InjectionMode } from "awilix";
+import {
+  createServer,
+  type Server as HTTP_Server,
+  type ServerOptions,
+} from "node:http";
+import {
+  createServer as createSSLServer,
+  type Server as HTTPS_Server,
+} from "node:https";
 import type { SecureContextOptions, TlsOptions } from "node:tls";
-import type { PartialDeep } from "type-fest";
-import { deepmerge } from "#utils/deepmerge.js";
+import type { ListenOptions } from "node:net";
+import { PinoLogger, type TLogger } from "../logger/logger.js";
+import { Handler } from "./handler.js";
 
-type TListenOptions = {
-  host: string;
-  port: number;
-};
+export const RootContainer: AwilixContainer = createContainer({
+  injectionMode: InjectionMode.CLASSIC,
+});
 
-export class HTTPServer extends HTTPRouter {
+export class Server<
+  Version extends HTTPVersion.V1 | HTTPVersion.V2 = HTTPVersion.V1
+> extends Router {
+  private _isBoundToProccessTermination = false;
+  private _isCompiled = false;
 
-  #handlers: HTTPHandler[] = [];
+  private _router: LookupRouter<Version>;
+  private _container = RootContainer.createScope();
+  private _server: HTTPS_Server | HTTP_Server | undefined;
+  private _logger: TLogger;
 
-  #server: Server | SSLServer;
+  private _handlers: Handler<Version>[] = [];
 
-  #router = createRouter({
-    allowUnsafeRegex: false,
-    caseSensitive: true,
-    ignoreTrailingSlash: true,
-    maxParamLength: 2048,
-    defaultRoute(_req, res) {
-      res.statusCode = 404;
-      res.write('This resource is not avaliable in this server!');
-      res.end();
-    }
-  });
-
-  #logger;
-
-  #container : AwilixContainer;
-
-  #httpConfiguration
-
-  get raw() {
-    return this.#server;
-  }
-
-  setDependencyContainer(container : AwilixContainer) {
-    this.#container = container;
-  }
-
-  constructor(
-    httpConfiguration?: PartialDeep<THTTPServerOptions>,
-    container? : AwilixContainer
-  ) {
+  constructor(private options?: TServerCreationOptions<Version>) {
     super();
-    this.#httpConfiguration = deepmerge(DefaultHttpConfiguration, httpConfiguration ?? {}) as THTTPServerOptions;
-    this.#server = this.#httpConfiguration.server.ssl != null
-      ? createSSLServer(
-        this.#httpConfiguration.server.ssl,
-        this.#router.lookup.bind(this.#router)
+    this.handle = this.handle.bind(this);
+    this._logger = options?.logger ?? new PinoLogger({ name: "HTTP Server" });
+    this._router = createRouter<Version>(
+      Object.assign(
+        {
+          allowUnsafeRegex: false,
+          caseSensitive: true,
+          ignoreTrailingSlash: true,
+          ignoreDuplicateSlashes: true,
+        },
+        options?.router ?? {}
       )
-      : createServer(this.#router.lookup.bind(this.#router));
-
-      this.#container = container ?? createContainer({ injectionMode : InjectionMode.CLASSIC });
-      this.#logger = new Logger(HTTPServer.name);
+    );
   }
 
-  get handlers() {
-    return [...this.#handlers];
+  get logger() {
+    return this._logger;
   }
 
-  addRoute(...routes: HTTPRoute[]) {
-    routes.forEach(route => {
-      const handler = this.createHandlerForRoute(route);
-      const method = route.method == null
-        ? 'GET' as HTTPMethod
-        : Array.isArray(route.method)
-          ? route.method.map(r => r.toLocaleUpperCase()) as HTTPMethod[]
-          : route.method.toLocaleUpperCase() as HTTPMethod;
-      const url = route.url == null ? '/' : ['/', '*'].includes(route.url.charAt(0)) ? route.url : '/' + route.url;
-      this.#logger.dev(` • ✅ [${String(method).padEnd(6, " ")}] ${url}`);
-      this.#router.on(method, url, handler);
+  handle(request: IncomingMessage, response: ServerResponse) {
+    this._logger.debug("New incoming request for the server!", {
+      url : request.url,
+      method : request.method,
     });
-   
-    this.routes.push(...routes);
+    return this._router.lookup(
+      request as Req<Version>,
+      response as Res<Version>
+    );
   }
 
-  async listen(options?: TListenOptions) {
+  // add the routes to the FindMyWay router
+  private _compile() {
+    this._container.register(this._resolvers);
 
-    const listOpts: TListenOptions = {
-      host: options?.host ?? this.#httpConfiguration.server.host,
-      port: options?.port ?? this.#httpConfiguration.server.port,
-    };
+    const routes = this.assembleRoutes();
+    this._logger.debug(
+      "Compiling server routes!",
+      `Discovered ${routes.length} route(s)`,
+      ...routes.map((r) => `Route: ${r._method} @ ${r._url}`)
+    );
 
-    this.#server.listen(listOpts);
-
-    return new Promise<boolean>((res, rej) => {
-      this.#server.on('listening', () => {
-        res(true);
-      });
-
-      this.#server.on('error', (e) => {
-        console.error('server error?', e)
-      });
-    });
-
-  }
-
-  private createHandlerForRoute(route: HTTPRoute) {
-    let handler = HTTPHandler.fromRoute(route, this.#container.createScope(), );
-    this.#handlers.push(handler);
-    return handler.handle.bind(handler);
-  }
-
-  async destroy() {
-    this.#router.reset();
-    if(this.#server.listening) {
-      this.#server.close();
+    for (let route of routes) {
+      const handler = Handler.fromRoute<Version>(
+        this._container.createScope(),
+        route
+      );
+      this._handlers.push(handler);
+      this._router.on(
+        handler.method.toLocaleUpperCase() as HTTPMethod,
+        handler.url,
+        handler.handle
+      );
     }
-    this.#server.removeAllListeners();
-    this.routes = [];
-    this.#handlers = [];
+
+    this._isCompiled = true;
+  }
+
+  listen(host: string, port: number): Promise<ListenOptions>;
+  listen(port: number): Promise<ListenOptions>;
+  listen(options: ListenOptions): Promise<ListenOptions>;
+  async listen(
+    arg1: ListenOptions | string | number,
+    port?: number
+  ): Promise<ListenOptions> {
+    // Previous server listening ?
+    if (this._server != null && this._server.listening) {
+      await new Promise((res, rej) =>
+        this._server!.close((err) => (err != null ? rej(err) : res))
+      ).catch((err) => {
+        this._logger.error(
+          "Failed to start listening! there was a previous running server that errored while being closed!",
+          err
+        );
+        throw err;
+      });
+    }
+
+    this._server =
+      this.options?.ssl != null
+        ? createSSLServer({
+            ...this.options!,
+            ...this.options!.ssl,
+          })
+        : createServer({ ...this.options });
+
+    this._server!.addListener("request", this.handle);
+
+    const options: ListenOptions = {};
+    // deal with (port : number) => signature
+    if (typeof arg1 === "number") {
+      options.host = "127.0.0.1";
+      options.port = arg1;
+    }
+
+    // deal with (host : string, port : number) => signature
+    if (typeof arg1 === "string" && typeof port === "number") {
+      options.host = arg1;
+      options.port = port;
+    }
+
+    // deal with (options : ListenOptions) => signature
+    if (typeof arg1 == "object") {
+      Object.assign(options, arg1);
+    }
+
+    this._bindToProccessEnd();
+
+    if (!this._isCompiled) {
+      this._compile();
+    }
+
+    return new Promise<ListenOptions>((res, rej) => {
+      this._server!.listen(options, () => {
+        res(options);
+      });
+      this._server!.once("error", (err) => {
+        rej(err);
+      });
+    });
+  }
+
+  private _bindToProccessEnd() {
+    if (!this._isBoundToProccessTermination) {
+      ["exit", "SIGINT", "SIGUSR1", "SIGUSR2", "SIGTERM"].forEach((type) =>
+        process.once(type, () => this._server && this._server.close())
+      );
+      this._isBoundToProccessTermination = true;
+    }
   }
 }
 
-
-export interface THTTPServerOptions {
-  server: {
-    host: string;
-    port: number;
-    ssl?: TlsOptions & SecureContextOptions;
-  };
-  route: {
-    body: {
-      maxBodySize: number;
-    };
-    files: {
-      maxFileSize: number;
-      maxTotalSize: number;
-      acceptMimes: string | string[];
-      minimunFileSize: number;
-      maxFiles : number;
-    };
-    headers: {
-      contentType: string | string[];
-    };
-  }
+export interface TServerCreationOptions<
+  V extends HTTPVersion.V1 | HTTPVersion.V2
+> extends ServerOptions {
+  ssl?: SecureContextOptions & TlsOptions;
+  logger?: TLogger;
+  router?: RouterConfig<V>;
 }
 
-export const DefaultHttpConfiguration: THTTPServerOptions = {
-  server: {
-    host: '127.0.0.1',
-    port: 4001
-  },
-  route: {
-    body: {
-      maxBodySize: 1024 * 1024 * 50,
-    },
-    headers: {
-      contentType : [
-        'application/json',
-        'text/plain',
-        'application/x-www-form-urlencoded',
-        'multipart/form-data'
-      ]
-    },
-    files: {
-      acceptMimes: '*/*',
-      maxFileSize: 5 * 1024 * 1024,
-      maxTotalSize: 1024 * 1024 * 50,
-      minimunFileSize: 128,
-      maxFiles : 10,
-    },
-  }
-}
+export type TListenOptions =
+  | string
+  | {
+      host: string;
+      port: number;
+    };

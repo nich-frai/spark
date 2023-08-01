@@ -1,22 +1,23 @@
-import { Logger } from "#logger";
-import type { ServerResponse } from "node:http";
+import { ServerResponse } from "node:http";
+
+import { PinoLogger, type TLogger } from "../logger/logger.js";
 import { HTTPError, InternalServerError } from "./http_error.js";
-import type { HTTPResponseMiddleware, THTTPErrorGenerationMoment } from "./middleware.js";
-import { ISetCookieOptions, serializeCookie } from "./parse/cookies.js";
+import { type ISetCookieOptions, serializeCookie } from "./cookie.js";
+
+export type TResponse = ServerResponse;
 
 export class HTTPResponse {
+  static #logger?: TLogger;
 
-  static #logger?: Logger;
-
-  private static logger(): Logger {
+  private static logger(): TLogger {
     if (HTTPResponse.#logger == null) {
-      HTTPResponse.#logger = new Logger(HTTPResponse.name);
+      HTTPResponse.#logger = new PinoLogger();
     }
     return HTTPResponse.#logger;
   }
 
   static ok(send: unknown, status: HTTPStatus | number = HTTPStatus.Ok) {
-    const r = new HTTPResponse;
+    const r = new HTTPResponse();
 
     r.status(status);
     r.setPayload(send);
@@ -25,7 +26,7 @@ export class HTTPResponse {
   }
 
   static error(err: Error | HTTPError, status?: HTTPStatus | number) {
-    const r = new HTTPResponse;
+    const r = new HTTPResponse();
 
     if (err instanceof HTTPError) {
       r.status(err.status);
@@ -47,7 +48,7 @@ export class HTTPResponse {
     return r;
   }
 
-  #generatedAt?: THTTPErrorGenerationMoment; 
+  #generatedAt?: string;
 
   #statusCode: number = 200;
 
@@ -57,12 +58,12 @@ export class HTTPResponse {
 
   #payload: Record<string, unknown> | unknown = {};
 
-  setGenerationMoment(moment : THTTPErrorGenerationMoment) {
+  setGenerationMoment(moment: string) {
     this.#generatedAt = moment;
   }
 
   get generatedAt() {
-    return this.#generatedAt ?? 'handler-finished-with-ok-response';
+    return this.#generatedAt ?? "handler-finished-with-ok-response";
   }
 
   setHeader(name: string, value: string) {
@@ -79,18 +80,22 @@ export class HTTPResponse {
     return this.#headers[name] != null;
   }
 
-  setCookie(name: string, value: string, options?: Omit<ISetCookieOptions, "value">) {
+  setCookie(
+    name: string,
+    value: string,
+    options?: Omit<ISetCookieOptions, "value">
+  ) {
     this.#cookies[name] = {
       value,
-      ...options
+      ...options,
     };
     return this;
   }
 
   expireCookie(name: string, options?: Omit<ISetCookieOptions, "value">) {
     this.#cookies[name] = {
-      value: '',
-      expires: new Date(Date.now() - 1000)
+      value: "",
+      expires: new Date(Date.now() - 1000),
     };
     return this;
   }
@@ -124,7 +129,7 @@ export class HTTPResponse {
 
   async send(response: ServerResponse) {
     return new Promise<void>((res, rej) => {
-      response.on('error', (err) => {
+      response.on("error", (err) => {
         rej(err);
       });
 
@@ -137,45 +142,51 @@ export class HTTPResponse {
       // parse cookies
       let setCookies: string[] = [];
       for (let cookieName in this.#cookies) {
-        setCookies.push(serializeCookie(cookieName, this.#cookies[cookieName].value, { ...this.#cookies[cookieName] }));
+        setCookies.push(
+          serializeCookie(cookieName, this.#cookies[cookieName].value, {
+            ...this.#cookies[cookieName],
+          })
+        );
       }
-      response.setHeader('Set-Cookie', setCookies);
+      response.setHeader("Set-Cookie", setCookies);
 
       // check type of payload
       if (this.#payload != null) {
-
         // do we need to infer content-type?
-        if (!response.hasHeader('Content-Type')) {
+        if (!response.hasHeader("Content-Type")) {
           // if payload is a buffer, send it as octet-stream!
-          if (this.#payload instanceof Buffer || this.#payload instanceof Uint8Array) {
-            response.setHeader('Content-Type', 'application/octet-stream');
+          if (
+            this.#payload instanceof Buffer ||
+            this.#payload instanceof Uint8Array
+          ) {
+            response.setHeader("Content-Type", "application/octet-stream");
           }
 
-          if (typeof this.#payload === 'object') {
-            response.setHeader('Content-Type', 'application/json');
+          if (typeof this.#payload === "object") {
+            response.setHeader("Content-Type", "application/json");
           }
 
-          if (['string', 'number', 'boolean'].includes(typeof this.#payload)) {
-            response.setHeader('Content-Type', 'text/plain');
+          if (["string", "number", "boolean"].includes(typeof this.#payload)) {
+            response.setHeader("Content-Type", "text/plain");
           }
         }
 
         // do we need to parse it?
         if (
-          typeof this.#payload !== 'string'
-          && !(this.#payload instanceof Buffer)
-          && !(this.#payload instanceof Uint8Array)
+          typeof this.#payload !== "string" &&
+          !(this.#payload instanceof Buffer) &&
+          !(this.#payload instanceof Uint8Array)
         ) {
           // primitives?
-          if (['number', 'boolean'].includes(typeof this.#payload)) {
+          if (["number", "boolean"].includes(typeof this.#payload)) {
             this.#payload = String(this.#payload);
           }
           // is an object?
-          else if (typeof this.#payload === 'object' && this.#payload != null) {
+          else if (typeof this.#payload === "object" && this.#payload != null) {
             // is there a toJSON?
             if (
-              'toJSON' in this.#payload
-              && typeof (this.#payload as any).toJSON === 'function'
+              "toJSON" in this.#payload &&
+              typeof (this.#payload as any).toJSON === "function"
             ) {
               this.#payload = JSON.stringify((this.#payload as any).toJSON());
             } else {
@@ -184,11 +195,19 @@ export class HTTPResponse {
           }
           // none of the above?... panic!
           else {
-            HTTPResponse.logger().error('Server does not know how to handle the response payload!', this.#payload);
-            rej(new InternalServerError("Server failed to parse the outgoing response!"));
+            HTTPResponse.logger().error(
+              this.#payload,
+              "Server does not know how to handle the response payload!",
+              this.#payload
+            );
+            rej(
+              new InternalServerError(
+                "Server failed to parse the outgoing response!"
+              )
+            );
           }
         }
-        response.write(this.#payload, err => err != null ? rej(err) : null);
+        response.write(this.#payload, (err) => (err != null ? rej(err) : null));
       }
       response.end(() => {
         res();
@@ -198,14 +217,13 @@ export class HTTPResponse {
 
   asJSON() {
     return {
-      status : this.#statusCode,
-      payload : this.#payload,
-      headers : this.#headers,
-      cookies : this.#cookies,
-      moment : this.#generatedAt ?? 'handler-finished-with-ok-response'
-    }
+      status: this.#statusCode,
+      payload: this.#payload,
+      headers: this.#headers,
+      cookies: this.#cookies,
+      moment: this.#generatedAt ?? "handler-finished-with-ok-response",
+    };
   }
-
 }
 
 export enum HTTPStatus {
@@ -264,4 +282,4 @@ export enum HTTPStatus {
   HTTPVersionNotSupported = 505,
   InsufficientStorage = 507,
   NetworkAuthenticationRequired = 511,
-};
+}

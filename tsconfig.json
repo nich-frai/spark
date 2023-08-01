@@ -2,44 +2,25 @@
   "compilerOptions": {
     "incremental": false,
     "target": "ES2022",
-    "lib": [
-      "ESNext",
-      "DOM"
-    ],
+    "lib": ["ESNext", "DOM"],
     "useDefineForClassFields": true,
     "module": "es2022",
     "rootDir": "./",
     "moduleResolution": "node",
     "baseUrl": "./",
     "paths": {
-      "#http/*": [
-        "src/http/*"
-      ],
-      "#ws/*": [
-        "src/websocket/*"
-      ],
-      "#utils/*": [
-        "src/utils/*"
-      ],
-      "#config/*": [
-        "config/*"
-      ],
-      "#models/*": [
-        "app/models/*"
-      ],
-      "#services/*": [
-        "app/services/*"
-      ],
-      "#common/*": [
-        "app/common/*"
-      ],
-      "#container": [
-        "src/dependency_injection/index.js"
-      ],
-      "#logger": [
-        "src/logger/logger.js"
-      ],
-      "#test/*" : ["test/*"]
+      "#http/*": ["src/http/*"],
+      "#http": ["src/http/index.js"],
+      "#ws/*": ["src/websocket/*"],
+      "#utils/*": ["src/utils/*"],
+      "#type": ["src/typebox/index.js"],
+      "#config/*": ["config/*"],
+      "#models/*": ["app/models/*"],
+      "#services/*": ["app/services/*"],
+      "#common/*": ["app/common/*"],
+      "#container": ["src/dependency_injection/index.js"],
+      "#logger": ["src/logger/logger.js"],
+      "#test/*": ["test/*"]
     },
     "allowJs": true,
     "declaration": true,
@@ -59,14 +40,6 @@
     "skipDefaultLibCheck": true,
     "skipLibCheck": true
   },
-  "include": [
-    "src/**/*.ts",
-    "examples/**/*.ts"
-  ],
-  "exclude": [
-    "prisma",
-    "node_modules",
-    ".scripts",
-    "dist"
-  ]
+  "include": ["run.ts", "src/**/*.ts", "examples/**/*.ts"],
+  "exclude": ["prisma", "node_modules", ".scripts", "dist"]
 }

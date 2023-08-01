@@ -16,6 +16,7 @@
   },
   "imports": {
     "#http/*": "./dist/http/*.js",
+    "#http": "./dist/http/index.js",
     "#ws/*": "./dist/websocket/*.js",
     "#utils/*": "./dist/utils/*.js",
     "#config/*": "./dist/config/*.js",
@@ -26,13 +27,13 @@
     "#container/*": "./dist/dependency_injection/*.js",
     "#logger": "./dist/core/logger/logger.js"
   },
-  "exports" : {
-    "." : "./dist/index.js",
-    "./http" : "./dist/http/index.js",
-    "./logger" : "./dist/logger/logger.js",
-    "./utils" : "./dist/utils/index.js",
-    "./ws" : "./dist/ws/index.js",
-    "./type" : "./dist/typebox/index.js"
+  "exports": {
+    ".": "./dist/index.js",
+    "./http": "./dist/http/index.js",
+    "./logger": "./dist/logger/logger.js",
+    "./utils": "./dist/utils/index.js",
+    "./ws": "./dist/ws/index.js",
+    "./type": "./dist/typebox/index.js"
   },
   "keywords": [
     "REST",
@@ -50,12 +51,14 @@
   "dependencies": {
     "@sinclair/typebox": "^0.29.6",
     "awilix": "^8.0.1",
+    "busboy": "^1.6.0",
     "dotenv": "^16.3.1",
     "find-my-way": "^7.6.2",
     "formidable": "^3.5.0",
     "pino": "^8.14.2"
   },
   "devDependencies": {
+    "@types/busboy": "^1.5.0",
     "@types/formidable": "^3.4.0",
     "@types/node": "^20.4.5",
     "esbuild": "^0.18.17",
