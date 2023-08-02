@@ -196,7 +196,6 @@ export class HTTPResponse {
           // none of the above?... panic!
           else {
             HTTPResponse.logger().error(
-              this.#payload,
               "Server does not know how to handle the response payload!",
               this.#payload
             );
