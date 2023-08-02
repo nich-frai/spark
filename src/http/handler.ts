@@ -1,16 +1,15 @@
-import type { AwilixContainer } from "awilix";
-import { type TAnyRoute } from "./route.js";
-import type { HTTPMethod, HTTPVersion, Req, Res } from "find-my-way";
 import { PinoLogger, type TLogger } from "#logger";
-import type { TBodyRestriction, TFileRestriction } from "./schema.js";
-import {
-  TypeCompiler,
-  type CheckFunction,
-  TypeCheck,
-} from "@sinclair/typebox/compiler";
 import { Type, type TSchema } from "@sinclair/typebox";
-import { BodyParser } from "./bodyParser/index.js";
+import {
+  TypeCheck,
+  TypeCompiler
+} from "@sinclair/typebox/compiler";
+import type { AwilixContainer } from "awilix";
+import type { HTTPMethod, HTTPVersion, Req, Res } from "find-my-way";
+import { BodyParser } from "./body_parser/index.js";
 import { BadRequest } from "./http_error.js";
+import { type TAnyRoute } from "./route.js";
+import type { TBodyRestriction, TFileRestriction } from "./schema.js";
 type TAnyHTTPMethod = HTTPMethod | Lowercase<HTTPMethod> | (string & {});
 
 export class Handler<
