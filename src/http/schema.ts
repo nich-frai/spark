@@ -2,25 +2,27 @@ import type { TOptional, TSchema, TString } from "@sinclair/typebox";
 import type { FileInfo } from "busboy";
 import type { Infer } from "#type";
 export type TServicesRestriction =
-  // | [] // empty array
-  [unknown, ...unknown[]];
+  | [] // empty array
+  | [unknown, ...unknown[]];
 
-export type TBodyRestriction = Record<string, TSchema>;
+export type TBodyRestriction = {
+  [name : string] : TSchema
+}
 
 export type TQueryStringRestriction = {
-  [name in string]: boolean | TString | TOptional<TString>;
+  [name : string]: true | TString | TOptional<TString>;
 };
 
 export type TCookieRestriction = {
-  [name in string]: boolean | TString | TOptional<TString>;
+  [name : string]: true | TString | TOptional<TString>;
 };
 
 export type THeaderRestriction = {
-  [name in string]: boolean | TString | TOptional<TString>;
+  [name : string]: true | TString | TOptional<TString>;
 };
 
 export type TFileRestriction = {
-  [name in string]: boolean | TFileFieldOption;
+  [name : string]: true | TFileFieldOption;
 };
 
 export type TFileFieldOption = TSingleFileOption | TMultipleFileOption;

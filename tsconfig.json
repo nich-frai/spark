@@ -2,7 +2,6 @@
   "compilerOptions": {
     "incremental": false,
     "target": "ES2022",
-    "lib": ["ESNext", "DOM"],
     "useDefineForClassFields": true,
     "module": "es2022",
     "rootDir": "./",

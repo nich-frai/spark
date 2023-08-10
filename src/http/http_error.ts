@@ -1,4 +1,4 @@
-import { Class } from "./utils.js";
+import type { Class } from "./utils.js";
 
 export class HTTPError extends Error {
   status : number = 400; 

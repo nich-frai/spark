@@ -163,7 +163,7 @@ export class PinoLogger implements TLogger {
         }
         process.stdout.write("\n");
       });
-      if (objs.length > 0) process.stdout.write("\n");
+      process.stdout.write("\n");
     }
   }
 
@@ -174,7 +174,7 @@ export class PinoLogger implements TLogger {
     ).padStart(2, "0")}:${String(now.getSeconds()).padStart(
       2,
       "0"
-    )}.${now.getMilliseconds()}`;
+    )}.${now.getMilliseconds().toString().padStart(3, "0")}`;
     return nowTime;
   }
 }

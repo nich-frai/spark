@@ -1,6 +1,9 @@
 import type { Resolver } from "awilix";
-import type { TRequestMiddleware } from "./middleware.js";
-import { Route, type TRouteCreationOptionsShort } from "./route.js";
+import type { HTTPMethod } from "find-my-way";
+import { join } from "node:path";
+import type { TErrorHandler } from "./http_error.js";
+import type { TAnyRequestMiddleware, TAnyResponseMiddleware } from "./middleware.js";
+import { Route, type TAnyRoute, type TRouteCreationOptionsShort } from "./route.js";
 import type {
   TBodyRestriction,
   TCookieRestriction,
@@ -9,26 +12,32 @@ import type {
   TQueryStringRestriction,
   TServicesRestriction,
 } from "./schema.js";
-import type { HTTPMethod } from "find-my-way";
-import { join } from "node:path";
 
-type TAnyRoute = Route<any, any, any, any, any, any>;
-type TAnyMiddleware = TRequestMiddleware<any, any, any, any, any, any>;
 
 export class Router {
   protected _resolvers: Record<string, Resolver<unknown>> = {};
   protected _routes: TAnyRoute[] = [];
   protected _childRouters: [string /* path */, Router][] = [];
 
-  protected _middleware: TAnyMiddleware[] = [];
+  protected _requestMiddleware: TAnyRequestMiddleware[] = [];
+  protected _responseMiddleware : TAnyResponseMiddleware[] = [];
+  protected _errorHandlers : TErrorHandler[] = [];
 
   addRoute(...routes: TAnyRoute[]) {
     this._routes.push(...routes);
     return this;
   }
 
-  use(...middleware: TAnyMiddleware[]) {
-    this._middleware.push(...middleware);
+  useOnRequest(...middleware: TAnyRequestMiddleware[]) {
+    this._requestMiddleware.push(...middleware);
+  }
+
+  useOnResponse(...middleware : TAnyResponseMiddleware[]) {
+    this._responseMiddleware.push(...middleware)
+  }
+
+  useOnError(...handlers : TErrorHandler[]) {
+    this._errorHandlers.push(...handlers);
   }
 
   mount(router : Router) : void;
@@ -279,7 +288,7 @@ Either:
   }
 
   getMiddlewares() {
-    return this._middleware;
+    return this._requestMiddleware;
   }
 
   getDependencyResolvers() {
@@ -293,24 +302,38 @@ Either:
     for(let [path, router] of this._childRouters) {
       const childRoutes = router.assembleRoutes();
       for(let route of childRoutes) {
-        route._url = join(path, route._url);
+        route.url = join(path, route.url);
         routes.push(route);
       }
     }
 
     for(let route of routes) {
       
-      // add this router middlewares
-      if(route._middlewares == null) route._middlewares = [];
-      route._middlewares = [
-        ...this._middleware,
-        ...route._middlewares
+      // add this router request middlewares
+      if(route.requestMiddleware == null) route.requestMiddleware = [];
+      route.requestMiddleware = [
+        ...this._requestMiddleware,
+        ...route.requestMiddleware
       ];
+      
+      // add this router response middlewares
+      if(route.responseMiddleware == null) route.responseMiddleware = [];
+      route.responseMiddleware = [
+        ...this._responseMiddleware,
+        ...route.responseMiddleware
+      ]
+      
+      // add this router error handlers
+      if(route.errorHandler == null) route.errorHandler = [];
+      route.errorHandler = [
+        ...this._errorHandlers,
+        ...route.errorHandler
+      ]
 
       // add this router dependency resolvers
-      route._inject = {
+      route.inject = {
         ...this._resolvers,
-        ...route._inject
+        ...route.inject
       }
     }
 

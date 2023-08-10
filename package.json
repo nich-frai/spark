@@ -5,7 +5,7 @@
   "main": "./dist/main.js",
   "type": "module",
   "scripts": {
-    "dev": "node .scripts/dev.mjs",
+    "dev": "tsx watch ./run.ts",
     "generate": "prisma generate",
     "migrate": "prisma migrate dev",
     "test": "vitest --config ./vitest.config.ts",

@@ -8,8 +8,9 @@ export async function URLEncodedParser(req: Req<HTTPVersion>) {
   }
 
   const bodyString = Buffer.concat(bodyParts).toString().replace('+', ' ');
-  const body: Record<string, string | string[]> = {};
+  const body: Record<string, string | string[]> = Object.create(null);
   const pieces = bodyString.split("&");
+
   for (let piece of pieces) {
     // If bytes is the empty byte sequence, then continue.
     if (piece.length === 0) continue;
@@ -37,6 +38,8 @@ export async function URLEncodedParser(req: Req<HTTPVersion>) {
       body[piece] = "";
     }
   }
+
+  delete body.__proto__
 
   return body;
 }

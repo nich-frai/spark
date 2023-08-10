@@ -10,7 +10,7 @@ export * as error from "./http_error.js";
 export { HTTPError } from "./http_error.js";
 
 export type {
-  TAnyMiddleware,
+  TAnyRequestMiddleware as TAnyMiddleware,
   TRequestMiddleware,
   TResponseMiddleware,
 } from "./middleware.js";

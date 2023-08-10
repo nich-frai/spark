@@ -1,7 +1,6 @@
 import { route } from "#http";
 import { t } from "src/typebox";
 import { Server } from "#http/server";
-import type { TOptionalKeys } from "#http/schema";
 import { PinoLogger } from "#logger";
 
 PinoLogger.enableDevOutput();
@@ -12,18 +11,18 @@ server.addRoute(
   route({
     url: "/",
     method: "GET",
-    queryString: {
-      name: t.Optional(t.String()),
-    },
-    handler(req) {
-      return `hello ${req.queryString().name ?? "World"}!`;
+   
+    async handler(req) {
     },
   }),
   route({
     url : "/",
-    method : 'post',
-    handler(req) {
-        
+    method : 'POST',
+    body: {
+      a: t.Optional(t.String()),
+    },
+    async handler(req) {
+      return `hello ${req.body.a ?? "World"}!`;
     }
   })
 );

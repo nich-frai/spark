@@ -9,6 +9,7 @@ import type {
   TFileRestriction,
   TServicesRestriction,
 } from "./schema.js";
+import type { TErrorHandler } from "./http_error.js";
 
 export interface TRequestMiddleware<
   TBody extends TBodyRestriction,
@@ -24,6 +25,12 @@ export interface TRequestMiddleware<
   header?: THeader;
   cookie?: TCookie;
   file?: TFile;
+
+  // injections
+  inject? : Record<string, Resolver<unknown>>
+
+  errorHandlers? : TErrorHandler | TErrorHandler[];
+  responseMiddleware? : TAnyResponseMiddleware[];
 
   handle(
     req: TRequest<TBody, TQueryString, THeader, TCookie, TFile> &
@@ -45,9 +52,15 @@ type TRegisterDependency = {
   registerDependency(register: Record<string, Resolver<unknown>>): void;
 };
 
-export type TAnyMiddleware = TRequestMiddleware<any, any, any, any, any, any>;
+export type TAnyRequestMiddleware = TRequestMiddleware<any, any, any, any, any, any>;
 
 
 export function requestMiddleware() {
+  
+}
+
+export type TAnyResponseMiddleware = TResponseMiddleware
+
+export function responseMiddleware() {
   
 }

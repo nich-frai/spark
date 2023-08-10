@@ -23,6 +23,7 @@ import type { SecureContextOptions, TlsOptions } from "node:tls";
 import type { ListenOptions } from "node:net";
 import { PinoLogger, type TLogger } from "../logger/logger.js";
 import { Handler } from "./handler.js";
+import { HandlerFactory } from "./handler_factory.js";
 
 export const RootContainer: AwilixContainer = createContainer({
   injectionMode: InjectionMode.CLASSIC,
@@ -75,18 +76,18 @@ export class Server<
 
   // add the routes to the FindMyWay router
   private _compile() {
+    const factory = new HandlerFactory(this._container);
     this._container.register(this._resolvers);
 
     const routes = this.assembleRoutes();
     this._logger.debug(
       "Compiling server routes!",
       `Discovered ${routes.length} route(s)`,
-      ...routes.map((r) => `Route: ${r._method} @ ${r._url}`)
+      ...routes.map((r) => `Route: ${r.method.toLocaleUpperCase()} @ ${r.url}`)
     );
 
     for (let route of routes) {
-      const handler = Handler.fromRoute<Version>(
-        this._container.createScope(),
+      const handler = factory.fromRoute<Version>(
         route
       );
       this._handlers.push(handler);

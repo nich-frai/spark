@@ -1,7 +1,10 @@
 import type { ServerResponse } from "node:http";
 import type { Resolver } from "awilix";
 import type { HTTPMethod } from "find-my-way";
-import type { TAnyMiddleware } from "./middleware.js";
+import type {
+  TAnyRequestMiddleware,
+  TAnyResponseMiddleware,
+} from "./middleware.js";
 import type { TRequest } from "./request.js";
 import type { TResponse } from "./response.js";
 import type {
@@ -12,16 +15,17 @@ import type {
   TQueryStringRestriction,
   TServicesRestriction,
 } from "./schema.js";
+import type { TErrorHandler } from "./http_error.js";
 
 export type TAnyRoute = Route<any, any, any, any, any, any>;
 
 export function route<
-  TBody extends TBodyRestriction,
-  TQueryString extends TQueryStringRestriction,
-  THeader extends THeaderRestriction,
-  TCookie extends TCookieRestriction,
-  TFile extends TFileRestriction,
-  TServices extends TServicesRestriction
+  TBody extends TBodyRestriction = Record<string, never>,
+  TQueryString extends TQueryStringRestriction = Record<string, never>,
+  THeader extends THeaderRestriction = Record<string, never>,
+  TCookie extends TCookieRestriction = Record<string, never>,
+  TFile extends TFileRestriction = Record<string, never>,
+  TServices extends TServicesRestriction = [unknown],
 >(
   options: TRouteCreationOptions<
     TBody,
@@ -41,7 +45,7 @@ export type TRouteCreationOptionsShort<
   THeader extends THeaderRestriction,
   TCookie extends TCookieRestriction,
   TFile extends TFileRestriction,
-  TServices extends TServicesRestriction
+  TServices extends TServicesRestriction,
 > = Omit<
   TRouteCreationOptions<
     TBody,
@@ -55,28 +59,30 @@ export type TRouteCreationOptionsShort<
 > & {};
 
 export class Route<
-  TBody extends TBodyRestriction = TBodyRestriction,
-  TQueryString extends TQueryStringRestriction = {},
-  THeader extends THeaderRestriction = {},
-  TCookie extends TCookieRestriction = {},
-  TFile extends TFileRestriction = {},
-  TServices extends TServicesRestriction = TServicesRestriction
+  TBody extends TBodyRestriction,
+  TQueryString extends TQueryStringRestriction,
+  THeader extends THeaderRestriction,
+  TCookie extends TCookieRestriction,
+  TFile extends TFileRestriction,
+  TServices extends TServicesRestriction
 > {
-  _url: string;
-  _method: HTTPMethod | Lowercase<HTTPMethod> | (string & {});
+  url: string;
+  method: HTTPMethod | Lowercase<HTTPMethod> | (string & {});
 
-  _body?: TBody;
-  _header?: THeader;
-  _queryString?: TQueryString;
-  _cookie?: TCookie;
-  _file?: TFile;
-  _fileOptions?: TFileOptions;
+  body?: TBody;
+  header?: THeader;
+  queryString?: TQueryString;
+  cookie?: TCookie;
+  file?: TFile;
+  fileOptions?: TFileOptions;
 
-  _services?: string[];
-  _middlewares?: TAnyMiddleware[];
-  _inject: Record<string, Resolver<unknown>> = {};
+  requestMiddleware?: TAnyRequestMiddleware[];
+  responseMiddleware?: TAnyResponseMiddleware[];
+  errorHandler?: TErrorHandler[];
 
-  _handler: (
+  inject: Record<string, Resolver<unknown>> = {};
+
+  handler: (
     req: TRequest<TBody, TQueryString, THeader, TCookie, TFile>,
     res: TResponse,
     ...services: TServices
@@ -92,31 +98,34 @@ export class Route<
       TServices
     >
   ) {
-    this._url = options.url;
-    this._method = options.method;
+    this.url = options.url;
+    this.method = options.method;
 
-    this._body = options.body;
-    this._queryString = options.queryString;
-    this._header = options.header;
-    this._cookie = options.cookie;
-    this._file = options.file;
+    this.body = options.body;
+    this.queryString = options.queryString;
+    this.header = options.header;
+    this.cookie = options.cookie;
+    this.file = options.file;
 
-    this._fileOptions = options.fileProcessingOptions;
+    this.fileOptions = options.fileProcessingOptions;
 
-    this._middlewares = options.middlewares;
+    this.requestMiddleware = options.requestMiddleware;
+    this.responseMiddleware = options.responseMiddleware;
+    this.errorHandler = options.errorHandler;
 
-    this._handler = options.handler;
+    this.handler = options.handler;
+
   }
 }
 
-export type TRouteCreationOptions<
-  TBody extends TBodyRestriction,
-  TQueryString extends TQueryStringRestriction,
-  THeader extends THeaderRestriction,
-  TCookie extends TCookieRestriction,
-  TFile extends TFileRestriction,
-  TServices extends TServicesRestriction
-> = {
+export interface TRouteCreationOptions<
+  TBody extends TBodyRestriction = Record<string, never>,
+  TQueryString extends TQueryStringRestriction = Record<string, never>,
+  THeader extends THeaderRestriction = Record<string, never>,
+  TCookie extends TCookieRestriction = Record<string, never>,
+  TFile extends TFileRestriction = Record<string, never>,
+  TServices extends TServicesRestriction = [unknown],
+> {
   url: string;
   method: HTTPMethod | Lowercase<HTTPMethod> | (string & {});
 
@@ -124,19 +133,20 @@ export type TRouteCreationOptions<
   queryString?: TQueryString;
   header?: THeader;
   cookie?: TCookie;
-
   file?: TFile;
   fileProcessingOptions?: TFile extends undefined ? never : TFileOptions;
 
-  middlewares?: TAnyMiddleware[];
+  requestMiddleware?: TAnyRequestMiddleware[];
+  responseMiddleware?: TAnyResponseMiddleware[];
+  errorHandler?: TErrorHandler[];
+
   handler: (
     req: TRequest<TBody, TQueryString, THeader, TCookie, TFile>,
-    res: ServerResponse,
+    res: TResponse,
     ...services: TServices
   ) => unknown | void;
-};
+}
 
 type TFileOptions = {
   preservePath?: boolean;
 };
-
