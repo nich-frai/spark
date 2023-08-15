@@ -1,15 +1,14 @@
-import type { IncomingMessage, ServerResponse } from "node:http";
+import { InjectionMode, createContainer, type AwilixContainer } from "awilix";
 import {
   default as createRouter,
-  type Req,
+  type HTTPMethod,
   type HTTPVersion,
   type Instance as LookupRouter,
-  type Config as RouterConfig,
+  type Req,
   type Res,
-  type HTTPMethod,
+  type Config as RouterConfig,
 } from "find-my-way";
-import { Router } from "./router.js";
-import { type AwilixContainer, createContainer, InjectionMode } from "awilix";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import {
   createServer,
   type Server as HTTP_Server,
@@ -19,11 +18,12 @@ import {
   createServer as createSSLServer,
   type Server as HTTPS_Server,
 } from "node:https";
-import type { SecureContextOptions, TlsOptions } from "node:tls";
 import type { ListenOptions } from "node:net";
+import type { SecureContextOptions, TlsOptions } from "node:tls";
 import { PinoLogger, type TLogger } from "../logger/logger.js";
 import { Handler } from "./handler.js";
 import { HandlerFactory } from "./handler_factory.js";
+import { Router } from "./router.js";
 
 export const RootContainer: AwilixContainer = createContainer({
   injectionMode: InjectionMode.CLASSIC,
@@ -46,6 +46,7 @@ export class Server<
     super();
     this.handle = this.handle.bind(this);
     this._logger = options?.logger ?? new PinoLogger({ name: "HTTP Server" });
+
     this._router = createRouter<Version>(
       Object.assign(
         {

@@ -1,13 +1,34 @@
-import type { HTTPVersion, Req } from 'find-my-way';
+import { Transform, type TransformCallback } from "node:stream";
 
-export async function JSONParser(stream : Req<HTTPVersion>) {
-    let body : Uint8Array[] = [];
+export class JSONParser extends Transform {
+  private chunks?: Uint8Array[];
+  constructor(options = {}) {
+    super({ readableObjectMode: true });
+    this.chunks = [];
+  }
 
-    for await (let chunk of stream) {
-        body.push(chunk);
+  override _transform(
+    chunk: Uint8Array,
+    _: BufferEncoding,
+    callback: TransformCallback
+  ) {
+    this.chunks!.push(chunk);
+    callback();
+  }
+
+  override _flush(callback: TransformCallback) {
+    try {
+      const fields = JSON.parse(
+        Buffer.concat(this.chunks!).toString()
+      );
+      delete fields.__proto__
+      this.push(fields);
+    } catch (e: unknown) {
+      if (e instanceof Error) callback(e);
+      else callback(new Error(String(e)));
+      return;
     }
-
-    const json = JSON.parse(Buffer.concat(body).toString("utf-8"));
-    delete json.__proto__
-    return json;
+    delete this.chunks;
+    callback();
+  }
 }

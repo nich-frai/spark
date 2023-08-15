@@ -9,6 +9,10 @@ import type {
   TQueryStringRestriction,
 } from "./schema";
 import type { AwilixContainer, Resolver } from "awilix";
+import { BadRequest } from "./http_error";
+import { cookieParser } from "./cookie";
+import { queryStringParser } from "./query_string";
+import { BodyParser } from "./body_parser";
 
 export class RequestFactory<V extends HTTPVersion> {
   #bodyChecker: TypeCheck<TSchema> | undefined;
@@ -93,18 +97,59 @@ export class RequestFactory<V extends HTTPVersion> {
     this.#files = files;
   }
 
+  #bodyParser : BodyParser = new BodyParser
+
   constructor(private container: AwilixContainer) {}
 
-  fromHTTP(req: Req<V>) {
+  async fromHTTP(req: Req<V>): Promise<TImprovedRequest<V> | Error> {
     // should validate headers?
+    if (this.headers != null) {
+      const validHeaders = this.#headersChecker!.Check(req.headers);
+      if (!validHeaders) {
+        const errors = Array.from(this.#headersChecker!.Errors(req.headers));
+        return new BadRequest(
+          "Incorrect headers!\nThe following headers are expected in the request: " +
+            Object.keys(this.headers).join(", ") +
+            "!\nErrors produced: " +
+            JSON.stringify(errors)
+        );
+      }
+    }
 
     // should validate cookies ?
+    if (this.cookies != null) {
+      const parsedCookies = cookieParser(req.headers["cookie"] ?? "");
+      const validCookies = this.#cookiesChecker!.Check(parsedCookies);
+      if (!validCookies) {
+        const errors = Array.from(this.#cookiesChecker!.Errors(parsedCookies));
+        return new BadRequest(
+          "Incorrect cookies!\nErrors produced: " + JSON.stringify(errors)
+        );
+      }
+      (req as any).cookies = parsedCookies;
+    }
 
     // should validate query string?
+    if (this.query != null) {
+      const parsedQueryString = queryStringParser(req.url ?? "");
+      const validQueryString = this.#queryChecker!.Check(parsedQueryString);
+      if (!validQueryString) {
+        const errors = this.#queryChecker!.Errors(parsedQueryString);
+        return new BadRequest(
+          "Incorrect query string!\nErrors produced: " + JSON.stringify(errors)
+        );
+      }
+      (req as any).queryString = parsedQueryString;
+    }
 
-    // should validate body ?
-
-    // should validate files ?
+    // should validate body 
+    if (this.body != null || this.files != null) {
+      const validHeaders = this.#bodyParser.validateHeaders(req.headers as Record<string, string>)
+      if(validHeaders instanceof Error) {
+        return validHeaders
+      }
+      await this.#bodyParser.parse(req)
+    }
 
     (req as any).provide = (
       nameOrRecord: string | Record<string, Resolver<unknown>>,
@@ -124,3 +169,12 @@ export class RequestFactory<V extends HTTPVersion> {
 export type TImprovedRequest<V extends HTTPVersion> = Req<V> & {
   [name: string]: any;
 };
+
+function extractContentType(header : string | undefined) {
+  if(header == null) return ""
+  const indexOfEqualSign = header.indexOf(';')
+  if(indexOfEqualSign >= 0) {
+    return header.substring(0, indexOfEqualSign)
+  }
+  return header;
+}

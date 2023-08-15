@@ -112,7 +112,7 @@ export class Handler<
     });
 
     // enrich request object with accessors
-    const request =  this.requestFactory.fromHTTP(req);
+    const request = await this.requestFactory.fromHTTP(req);
 
     // apply request middleware
     for (let middleware of this.requestMiddleware) {
@@ -135,57 +135,6 @@ export class Handler<
     }
   }
 
-  private async enrichRequestObject(
-    req: Req<Version>,
-    container: AwilixContainer
-  ) {
-    let enrichedRequest = req as TEnrichedRequest<Version>;
-
-    // body parser (not used when also parsing files)
-    if (this.bodySchema != null && this.fileSchema == null) {
-      this._addBodyGetter(enrichedRequest, this.bodySchema);
-    }
-
-    // queryString parser
-    if (this.querySchema != null) {
-      this._addQueryParamsGetter(enrichedRequest, this.querySchema);
-    }
-
-    // cookie parser
-    if (this.cookieSchema != null) {
-      this._addCookieGetter(enrichedRequest, this.cookieSchema);
-    }
-
-    // header parser
-    if (this.headerSchema != null) {
-      this._addHeaderGetter(enrichedRequest, this.headerSchema);
-    }
-
-    // file parser
-    if (this.fileSchema != null) {
-      this._addFileAndBodyGetter(
-        enrichedRequest,
-        this.fileSchema,
-        this.bodySchema
-      );
-    }
-
-    // add function to add dependencies to container
-    enrichedRequest.registerDependency = (
-      nameOrRecord: string | Record<string, Resolver<unknown>>,
-      provider?: Resolver<unknown>
-    ) => {
-      if (typeof nameOrRecord === "object" && provider == null) {
-        container.register(nameOrRecord);
-      }
-      if (typeof nameOrRecord === "string" && provider != null) {
-        container.register(nameOrRecord, provider);
-      }
-    };
-
-    return req as Req<Version> & { [name: string]: unknown };
-  }
-
   compile() {
 
   }
@@ -195,114 +144,5 @@ export class Handler<
     container: AwilixContainer
   ) {}
 
-  private _addBodyGetter(
-    req: Req<Version> & { [name: string]: any },
-    schema: TBodyRestriction
-  ) {
-    // create compiler if it does not exist
-    this.#logger.debug(
-      "Request has a body parser, get/create compiled checker!",
-      { keys: Object.keys(schema) }
-    );
-    if (this.#compiledCheckers["body"] == null) {
-      this.#compiledCheckers["body"] = TypeCompiler.Compile(
-        Type.Object(schema)
-      );
-      this.#logger.debug("Compiled type checkers for body schema!", {
-        keys: Object.keys(schema),
-      });
-    }
-
-    // check content-type
-    const contentType = req.headers["content-type"];
-    if (contentType == null || !Object.keys(BodyParser).includes(contentType)) {
-      throw new BadRequest(
-        `This API endpoint expects body content and a supported content-type header to work properly! Please provide one of the supported content-types: ${Object.keys(
-          BodyParser
-        ).join(", ")}`
-      );
-    }
-
-    req.body = async () => {
-      this.#logger.debug(
-        "Body requested for the first time! checking if it is a valid body!"
-      );
-      const unverifiedBody = await BodyParser[
-        contentType as keyof typeof BodyParser
-      ](req);
-      this.#logger.debug("The parsed body is as follows: ", unverifiedBody);
-      const matches = this.#compiledCheckers["body"].Check(unverifiedBody);
-      // TODO: verify keys inside objects
-
-      if (!matches) {
-        let checkErrors = Array.from(
-          this.#compiledCheckers["body"].Errors(unverifiedBody)
-        );
-        throw checkErrors;
-      }
-
-      let verifiedBody: any = {};
-      for (let key of Object.keys(schema)) {
-        verifiedBody[key] = (unverifiedBody as any)[key];
-      }
-      this.#logger.debug(
-        "The parsed body matches the schema! Replacing checker function with a noop, next time it shall only return the parsed body!",
-        verifiedBody
-      );
-      req.body = async () => verifiedBody;
-
-      return verifiedBody;
-    };
-  }
-
-  private _addQueryParamsGetter(
-    req: Req<Version> & { [name: string]: any },
-    schema: TQueryStringRestriction
-  ) {
-    const schemaKeys = Object.keys(schema);
-    // create compiler if it does not exist
-    this.#logger.debug(
-      "Request has a query string parser, get/create compiled checker!",
-      { keys: schemaKeys }
-    );
-
-    if (this.#compiledCheckers["query"] == null) {
-      const checkQuerySchema: Record<string, TSchema> = {};
-      for (let key in this.querySchema) {
-        let check = this.querySchema[key];
-        // Replace "boolean" values with a string property
-        if (typeof check === "boolean") {
-          checkQuerySchema[key] = Type.String();
-        } else {
-          checkQuerySchema[key] = check;
-        }
-      }
-      this.#compiledCheckers["query"] = TypeCompiler.Compile(
-        Type.Object(checkQuerySchema)
-      );
-      this.#logger.debug("Compiled type checkers for query string schema!", {
-        keys: schemaKeys,
-      });
-    }
-
-    req.query = async () => {
-      const searchParams = new URLSearchParams(req.url);
-    };
-  }
-
-  private _addCookieGetter(
-    req: Req<Version> & { [name: string]: any },
-    schema: TCookieRestriction
-  ) {}
-
-  private _addHeaderGetter(
-    req: Req<Version> & { [name: string]: any },
-    schema: THeaderRestriction
-  ) {}
-
-  private _addFileAndBodyGetter(
-    req: Req<Version> & { [name: string]: any },
-    fileSchema: TFileRestriction,
-    bodySchema?: TBodyRestriction
-  ) {}
+ 
 }

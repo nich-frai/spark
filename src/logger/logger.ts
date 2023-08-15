@@ -18,6 +18,8 @@ export interface TLogger {
 export class PinoLogger implements TLogger {
   private static devOutput: boolean = false;
 
+  private static lastOutputId? : string;
+
   static enableDevOutput() {
     PinoLogger.devOutput = true;
   }
@@ -55,6 +57,15 @@ export class PinoLogger implements TLogger {
     );
 
     if (PinoLogger.devOutput) {
+      const outputID = this.name + "DEBUG"
+      if(PinoLogger.lastOutputId === outputID) {
+        this.dev(
+          ` @ ${kleur.dim().gray(`[${this.displayTime()}]`)} -> ${kleur.reset(msg)}`,
+          ...args
+        );  
+        return;
+      }
+      PinoLogger.lastOutputId = outputID;
       this.dev(
         `${kleur.dim().gray(`[${this.displayTime()}]`)} ${kleur
           .white()
@@ -181,7 +192,7 @@ export class PinoLogger implements TLogger {
 
 function inlineOutput(out: string) {
   return out
-    .replace(/\n/gm, "")
+    //.replace(/\n/gm, "")
     .replace(/\s+/gm, " ")
     .replace(/(\[|{)\s+/gm, "$1");
 }
