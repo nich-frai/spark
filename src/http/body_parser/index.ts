@@ -1,12 +1,12 @@
-import { BadRequest } from "#http/http_error";
-import type { Transform } from "node:stream";
-import { JSONParser } from "./json";
-import { MultipartParser } from "./multipart";
-import { TextPlainParser } from "./text_plain";
-import { URLEncodedParser } from "./url_encoded";
+import { BadRequest } from "#http/http_error.js";
 import { PinoLogger, type TLogger } from "#logger";
 import type { HTTPVersion, Req } from "find-my-way";
-import type { TBodyRestriction, TFileRestriction } from "..";
+import type { Transform } from "node:stream";
+import type { TBodyRestriction, TFileRestriction } from "../schema.js";
+import { JSONParser } from "./json.js";
+import { MultipartParser } from "./multipart.js";
+import { TextPlainParser } from "./text_plain.js";
+import { URLEncodedParser } from "./url_encoded.js";
 
 const DEFAULT_BODY_PARSER_OPTIONS: TBodyParserOptions = {
   maxBodySize: 1024 * 1024 * 10 /* 10mb */,

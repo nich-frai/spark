@@ -1,48 +1,8 @@
-import { BadRequest } from "#http/http_error";
+import { BadRequest } from "#http/http_error.js";
 import { PinoLogger } from "#logger";
 import { Transform, Writable, type TransformCallback } from "node:stream";
-import type { TFileRestriction } from "..";
-
-let s = 0;
-const ScannerState = {
-  NOT_SET: s++,
-  CHECK_PART_HEADER_VALIDITY: s++,
-  LOOKUP_NAME_OF_PART: s++,
-  ACQUIRE_PART_NAME: s++,
-  CHECK_FOR_FILENAME_OR_END_OF_HEADER: s++,
-  ACQUIRE_PART_FILENAME: s++,
-  CHECK_FOR_OTHER_PART_HEADERS: s++,
-  ACQUIRE_PART_CONTENT: s++,
-  CHECK_FOR_END_OF_STREAM: s++,
-  END_OF_STREAM: s++,
-};
-
-const ScannerStateNames = Object.entries(ScannerState).reduce<
-  Record<number, string>
->((o, [name, value]) => {
-  o[value] = name;
-  return o;
-}, {});
-
-type TMultipartScannerState = (typeof ScannerState)[keyof typeof ScannerState];
-
-const DELIMITER_START = Buffer.from("--");
-const CRLF = Buffer.from("\r\n");
-
-const HEADER_CONTENT_DISPOSITION = Buffer.from(
-  "Content-Disposition: form-data;"
-);
-const HEADER_CONTENT_DISPOSITION_LOWER = Buffer.from(
-  "content-disposition: form-data;"
-);
-const HEADER_CONTENT_TYPE = 'content-type:'
-const HEADER_PART_NAME = Buffer.from('name="');
-const HEADER_FILENAME = Buffer.from('filename="');
-
-const WHITE_SPACE = 32;
-const DOUBLE_QUOTE = 34;
-const CARRIAGE_RETURN = 13;
-const NEW_LINE = 10;
+import type { TFileRestriction } from "../schema.js";
+import type { TBodyParserOptions } from "./body_parser.js";
 
 export class MultipartParser extends Transform {
   #logger = new PinoLogger({ name: "MultipartParser" });
@@ -519,6 +479,40 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
   }
 }
 
+let s = 0;
+const ScannerState = {
+  NOT_SET: s++,
+  CHECK_PART_HEADER_VALIDITY: s++,
+  LOOKUP_NAME_OF_PART: s++,
+  ACQUIRE_PART_NAME: s++,
+  CHECK_FOR_FILENAME_OR_END_OF_HEADER: s++,
+  ACQUIRE_PART_FILENAME: s++,
+  CHECK_FOR_OTHER_PART_HEADERS: s++,
+  ACQUIRE_PART_CONTENT: s++,
+  CHECK_FOR_END_OF_STREAM: s++,
+  END_OF_STREAM: s++,
+};
+
+type TMultipartScannerState = (typeof ScannerState)[keyof typeof ScannerState];
+
+const DELIMITER_START = Buffer.from("--");
+const CRLF = Buffer.from("\r\n");
+
+const HEADER_CONTENT_DISPOSITION = Buffer.from(
+  "Content-Disposition: form-data;"
+);
+const HEADER_CONTENT_DISPOSITION_LOWER = Buffer.from(
+  "content-disposition: form-data;"
+);
+const HEADER_CONTENT_TYPE = 'content-type:'
+const HEADER_PART_NAME = Buffer.from('name="');
+const HEADER_FILENAME = Buffer.from('filename="');
+
+const WHITE_SPACE = 32;
+const DOUBLE_QUOTE = 34;
+const CARRIAGE_RETURN = 13;
+const NEW_LINE = 10;
+
 type TFormDataPartInfo = {
   type? : 'field' | 'file'
   name?: string;
@@ -534,19 +528,11 @@ export type TFilePartInfo = TFormDataPartInfo & {
   readonly originalFilename?: string;
 };
 
-export interface TMultipartParserOptions {
+export interface TMultipartParserOptions extends TBodyParserOptions {
   boundary : string;
-
-  maxTotalBodySize? : number;
-  
   createFileWritableStream?: (info : TFilePartInfo) => Writable;
-
-  schema? : TFileRestriction;
-
 }
 
 export function DefaultCreateFileWritableStream(info : TFilePartInfo) : Writable {
-
-
   throw new Error('Not implemented yet')
 }
