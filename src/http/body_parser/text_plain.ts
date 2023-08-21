@@ -1,12 +1,25 @@
 import type { HTTPVersion, Req } from "find-my-way";
+import { Transform, type TransformCallback } from "node:stream";
 
-export async function TextPlainParser(stream: Req<HTTPVersion>) {
-  let body: Uint8Array[] = [];
-
-  for await (let chunk of stream) {
-    console.log("Stream Chunk:", chunk);
-    body.push(chunk);
+export class TextPlainParser extends Transform {
+  private chunks?: Uint8Array[];
+  constructor(options = {}) {
+    super({ readableObjectMode: true });
+    this.chunks = [];
   }
 
-  return Buffer.concat(body).toString("utf-8");
+  override _transform(
+    chunk: Uint8Array,
+    _: BufferEncoding,
+    callback: TransformCallback
+  ) {
+    this.chunks!.push(chunk);
+    callback();
+  }
+
+  override _flush(callback: TransformCallback) {
+    const plainText = Buffer.concat(this.chunks!).toString()
+    callback(null, plainText);
+    return;
+  }
 }

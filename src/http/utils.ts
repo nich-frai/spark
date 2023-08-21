@@ -1,9 +1,3 @@
-export type Class<T, Args extends ClassConstructorArgs = []> = {
+export type Class<T, Args extends any[] = any[]> = {
   new (...args: Args) : T;
 };
-
-type ClassConstructorArgs =
-  | []
-  | [unknown]
-  | [unknown, unknown]
-  | [unknown, unknown, unknown];

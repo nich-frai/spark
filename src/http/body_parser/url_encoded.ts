@@ -1,45 +1,124 @@
-import type { HTTPVersion, Req } from "find-my-way";
+import { Transform } from "node:stream";
+import type { TransformCallback } from "stream";
+import type { TBodyParserOptions } from "./body_parser.js";
+import { PayloadTooLarge } from "#http/http_error.js";
 
-export async function URLEncodedParser(req: Req<HTTPVersion>) {
-  const bodyParts: Uint8Array[] = [];
+export class URLEncodedParser extends Transform {
+  private state: URLEncodedState[keyof URLEncodedState] =
+    State.ACQUIRE_FIELD_NAME;
 
-  for await (let chunk of req) {
-    bodyParts.push(chunk);
+  private bytesReceived: number = 0;
+
+  private nameLookupIndex = 0;
+  private valueLookupIndex = 0;
+
+  private fieldName = "";
+  private fieldValue = "";
+
+  constructor(private options: TBodyParserOptions) {
+    super({
+      readableObjectMode: true,
+    });
   }
 
-  const bodyString = Buffer.concat(bodyParts).toString().replace('+', ' ');
-  const body: Record<string, string | string[]> = Object.create(null);
-  const pieces = bodyString.split("&");
+  private setState(state: URLEncodedState[keyof URLEncodedState]) {
+    this.state = state;
+  }
 
-  for (let piece of pieces) {
-    // If bytes is the empty byte sequence, then continue.
-    if (piece.length === 0) continue;
+  override _transform(
+    chunk: Buffer,
+    _encoding: BufferEncoding,
+    callback: TransformCallback
+  ): void {
+    this.bytesReceived += chunk.length;
+    if (this.bytesReceived > this.options.maxBodySize) {
+      callback(new PayloadTooLarge());
+      return;
+    }
 
-    let ioEqual = piece.indexOf("=");
-    // If bytes contains a 0x3D (=), then let name be the bytes from the start of bytes up to but excluding its first 0x3D (=), and let value be the bytes, if any, after the first 0x3D (=) up to the end of bytes. 
-    // If 0x3D (=) is the first byte, then name will be the empty byte sequence. If it is the last, then value will be the empty byte sequence.
-    if(ioEqual >= 0) {
-        const keyName = piece.substring(0, ioEqual)
-        const value = ioEqual === piece.length - 1 ? "" : piece.substring(ioEqual + 1)
-        // key previously set
-        if(body[keyName] != null) {
-          // not an array!
-          if(!Array.isArray(body[keyName])) {
-            body[keyName] = [ body[keyName] as string]
-          }
-          (body[keyName] as string[]).push(value)
-        } else {
-          body[keyName] = value
+    for (let a = 0; a < chunk.length; a++) {
+      if (this.state === State.ACQUIRE_FIELD_NAME) {
+        if (chunk[a] === EQUAL_SYMBOL) {
+          this.fieldName += chunk
+            .subarray(this.nameLookupIndex, a - 1)
+            .toString();
+
+          // change to acquire field value
+          this.valueLookupIndex = a + 1;
+          this.setState(State.ACQUIRE_FIELD_VALUE);
         }
-        continue;
+      }
+
+      if (this.state === State.ACQUIRE_FIELD_VALUE) {
+        if (chunk[a] === AMP_SYMBOL) {
+          this.fieldValue += chunk
+            .subarray(this.valueLookupIndex, a - 1)
+            .toString();
+
+          this.setState(State.ACQUIRE_FIELD_NAME);
+          this.nameLookupIndex = a + 1;
+
+          this._sendFieldContent();
+          this._resetKeyValuePair();
+        }
+      }
     }
-    
-    if (ioEqual < 0) {
-      body[piece] = "";
+
+    if (this.state === State.ACQUIRE_FIELD_NAME) {
+      this.fieldName += chunk
+        .subarray(this.nameLookupIndex, chunk.length - 1)
+        .toString();
     }
+
+    if (this.state === State.ACQUIRE_FIELD_NAME) {
+      this.fieldValue += chunk
+        .subarray(this.nameLookupIndex, chunk.length - 1)
+        .toString();
+    }
+
+    this.nameLookupIndex = 0;
+    this.valueLookupIndex = 0;
+
+    callback();
   }
 
-  delete body.__proto__
+  override _flush(callback: TransformCallback): void {
+    // call save value pair for "last key value pair" since there is no marking for "end of url encoded string"
+    this._sendFieldContent();
 
-  return body;
+    // send the body as the data
+    callback(null);
+  }
+
+  private _sendFieldContent() {
+    if (this.options.bodySchema == null) {
+      return;
+    }
+
+    if (!(this.fieldName in this.options.bodySchema)) {
+      return;
+    }
+
+    this.push({
+      type: "field",
+      name: this.fieldName,
+      content: this.fieldValue,
+    });
+  }
+
+  private _resetKeyValuePair() {
+    this.fieldName = "";
+    this.fieldValue = "";
+  }
 }
+
+let s = 0;
+const State = {
+  ACQUIRE_FIELD_NAME: s++,
+  ACQUIRE_FIELD_VALUE: s++,
+};
+
+const EQUAL_SYMBOL = "=".charCodeAt(0);
+const AMP_SYMBOL = "&".charCodeAt(0);
+
+type URLEncodedState = typeof State;
