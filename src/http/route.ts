@@ -149,4 +149,5 @@ export interface TRouteCreationOptions<
 
 type TFileOptions = {
   preservePath?: boolean;
+  uploadDir? : string;
 };

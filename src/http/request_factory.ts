@@ -7,12 +7,12 @@ import type {
   TFileRestriction,
   THeaderRestriction,
   TQueryStringRestriction,
-} from "./schema";
+} from "./schema.js";
 import type { AwilixContainer, Resolver } from "awilix";
-import { BadRequest } from "./http_error";
-import { cookieParser } from "./cookie";
-import { queryStringParser } from "./query_string";
-import { BodyParser } from "./body_parser";
+import { BadRequest } from "./http_error.js";
+import { cookieParser } from "./cookie.js";
+import { queryStringParser } from "./query_string.js";
+import { BodyParser } from "./body_parser/index.js";
 
 export class RequestFactory<V extends HTTPVersion> {
   #bodyChecker: TypeCheck<TSchema> | undefined;
@@ -97,9 +97,21 @@ export class RequestFactory<V extends HTTPVersion> {
     this.#files = files;
   }
 
-  #bodyParser : BodyParser = new BodyParser
+  #bodyParser: BodyParser;
 
-  constructor(private container: AwilixContainer) {}
+  constructor(
+    private container: AwilixContainer,
+    options: TRequestFactoryOptions
+  ) {
+    this.#bodyParser = new BodyParser(this.container, {
+      fileSchema: options.files,
+      bodySchema: options.body,
+      maxBodySize: options.maxBodySize,
+    });
+
+    this.files = options.files;
+    this.body = options.body;
+  }
 
   async fromHTTP(req: Req<V>): Promise<TImprovedRequest<V> | Error> {
     // should validate headers?
@@ -142,13 +154,15 @@ export class RequestFactory<V extends HTTPVersion> {
       (req as any).queryString = parsedQueryString;
     }
 
-    // should validate body 
+    // should validate body
     if (this.body != null || this.files != null) {
-      const validHeaders = this.#bodyParser.validateHeaders(req.headers as Record<string, string>)
-      if(validHeaders instanceof Error) {
-        return validHeaders
+      const validHeaders = this.#bodyParser.validateHeaders(
+        req.headers as Record<string, string>
+      );
+      if (validHeaders instanceof Error) {
+        return validHeaders;
       }
-      await this.#bodyParser.parse(req)
+      await this.#bodyParser.parse(req);
     }
 
     (req as any).provide = (
@@ -170,11 +184,21 @@ export type TImprovedRequest<V extends HTTPVersion> = Req<V> & {
   [name: string]: any;
 };
 
-function extractContentType(header : string | undefined) {
-  if(header == null) return ""
-  const indexOfEqualSign = header.indexOf(';')
-  if(indexOfEqualSign >= 0) {
-    return header.substring(0, indexOfEqualSign)
+function extractContentType(header: string | undefined) {
+  if (header == null) return "";
+  const indexOfEqualSign = header.indexOf(";");
+  if (indexOfEqualSign >= 0) {
+    return header.substring(0, indexOfEqualSign);
   }
   return header;
+}
+
+export interface TRequestFactoryOptions {
+  files?: TFileRestriction;
+  body?: TBodyRestriction;
+  header?: THeaderRestriction;
+  query?: TQueryStringRestriction;
+  cookies?: TCookieRestriction;
+
+  maxBodySize?: number;
 }

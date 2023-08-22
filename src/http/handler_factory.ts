@@ -1,6 +1,6 @@
 import type { AwilixContainer } from "awilix";
-import type { Route, TAnyRoute } from "./route";
-import { Handler } from "./handler";
+import type { Route, TAnyRoute } from "./route.js";
+import { Handler } from "./handler.js";
 import type { HTTPVersion } from "find-my-way";
 
 export class HandlerFactory {

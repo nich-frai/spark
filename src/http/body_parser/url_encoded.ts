@@ -1,9 +1,13 @@
 import { Transform } from "node:stream";
 import type { TransformCallback } from "stream";
-import type { TBodyParserOptions } from "./body_parser.js";
+import type { TBodyParserOptions, TBodyParserPartField } from "./body_parser.js";
 import { PayloadTooLarge } from "#http/http_error.js";
+import type { AwilixContainer } from "awilix";
+import { PinoLogger, type TLogger } from "#logger";
 
 export class URLEncodedParser extends Transform {
+  #logger: TLogger = new PinoLogger({ name: "URLEncodedParser" });
+
   private state: URLEncodedState[keyof URLEncodedState] =
     State.ACQUIRE_FIELD_NAME;
 
@@ -15,7 +19,10 @@ export class URLEncodedParser extends Transform {
   private fieldName = "";
   private fieldValue = "";
 
-  constructor(private options: TBodyParserOptions) {
+  constructor(
+    private container: AwilixContainer,
+    private options: TBodyParserOptions
+  ) {
     super({
       readableObjectMode: true,
     });
@@ -40,7 +47,7 @@ export class URLEncodedParser extends Transform {
       if (this.state === State.ACQUIRE_FIELD_NAME) {
         if (chunk[a] === EQUAL_SYMBOL) {
           this.fieldName += chunk
-            .subarray(this.nameLookupIndex, a - 1)
+            .subarray(this.nameLookupIndex, a)
             .toString();
 
           // change to acquire field value
@@ -52,7 +59,7 @@ export class URLEncodedParser extends Transform {
       if (this.state === State.ACQUIRE_FIELD_VALUE) {
         if (chunk[a] === AMP_SYMBOL) {
           this.fieldValue += chunk
-            .subarray(this.valueLookupIndex, a - 1)
+            .subarray(this.valueLookupIndex, a)
             .toString();
 
           this.setState(State.ACQUIRE_FIELD_NAME);
@@ -91,19 +98,28 @@ export class URLEncodedParser extends Transform {
   }
 
   private _sendFieldContent() {
+    
     if (this.options.bodySchema == null) {
+      this.#logger.debug('Body schema not set! Ignoring URL encoded content!');
       return;
     }
 
-    if (!(this.fieldName in this.options.bodySchema)) {
+    // decode field name before checking if it exists in schema!
+    this.fieldName = decodeURIComponent(this.fieldName.replaceAll('+', ' '))
+    console.log(this.fieldName);
+
+    if (!Object.keys(this.options.bodySchema).includes(this.fieldName)) {
+      this.#logger.debug(`Body schema does not include field "${this.fieldName}"! Ingoring it`);
       return;
     }
 
     this.push({
       type: "field",
       name: this.fieldName,
-      content: this.fieldValue,
-    });
+      content: decodeURIComponent(this.fieldValue.replaceAll('+', ' ')),
+      contentType : 'text/plain',
+      size : this.fieldValue.length
+    } satisfies TBodyParserPartField);
   }
 
   private _resetKeyValuePair() {

@@ -1,8 +1,16 @@
-import { Transform, Writable, type TransformCallback } from "node:stream";
 import { BadRequest, PayloadTooLarge } from "#http/http_error.js";
 import { PinoLogger } from "#logger";
-import type { TBodyParserOptions } from "./body_parser.js";
 import type { AwilixContainer } from "awilix";
+import { customAlphabet, urlAlphabet } from "nanoid";
+import { createWriteStream, existsSync, mkdirSync, rm, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { Transform, Writable, type TransformCallback } from "node:stream";
+import type {
+  TBodyParserOptions,
+  TBodyParserPartAny,
+  TBodyParserPartFile,
+} from "./body_parser.js";
 
 export class MultipartParser extends Transform {
   static DefaultCreateFileWritableStream = DefaultCreateFileWritableStream;
@@ -20,8 +28,15 @@ export class MultipartParser extends Transform {
   private _partHeaderLineBuffer?: Buffer;
   private _partName = "";
   private _partFilename = "";
-  private _part: TFormDataPartInfo = {
+  private _part: TBodyParserPartAny & {
+    content: Writable | string;
+    error?: Error;
+  } = {
+    type: "field",
+    name: "",
     contentType: "text/plain",
+    content: "",
+    size: 0,
   };
 
   private state: TMultipartScannerState = ScannerState.NOT_SET;
@@ -30,7 +45,7 @@ export class MultipartParser extends Transform {
   private bytesReceived: number = 0;
 
   constructor(
-    private container : AwilixContainer,
+    private container: AwilixContainer,
     private options: TMultipartParserOptions
   ) {
     super({ readableObjectMode: true });
@@ -49,7 +64,13 @@ export class MultipartParser extends Transform {
     this.state = state;
 
     if (state === ScannerState.CHECK_PART_HEADER_VALIDITY) {
-      this._part = { contentType: "text/plain" };
+      this._part.type = "field";
+      this._part.name = "";
+      this._part.content = null as any;
+      this._part.size = 0;
+      this._part.contentType = "text/plain";
+      this._part.error = undefined;
+
       this._contentDispositionLookupIndex = 0;
     }
 
@@ -93,6 +114,7 @@ export class MultipartParser extends Transform {
     this.bytesReceived += chunk.length;
 
     if (this.bytesReceived > this.options.maxBodySize) {
+      this.#logger.warn("Bytes received are greater than allowed, skip!");
       callback(new PayloadTooLarge(""));
       return;
     }
@@ -112,7 +134,6 @@ export class MultipartParser extends Transform {
         return;
       }
       startAt = indexOfBoundary + this.boundaryDelimiter.length;
-      this.#logger.debug(`Found boundary at ${startAt}!`);
       this.setState(ScannerState.CHECK_PART_HEADER_VALIDITY);
     }
 
@@ -197,7 +218,6 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
         // double quotes == end of name string! stop acquisition
         if (chunk[a] === DOUBLE_QUOTE) {
           this._part.name = this._partName;
-          this.#logger.debug(`Part name acquired: "${this._partName}"`);
           this.setState(ScannerState.CHECK_FOR_FILENAME_OR_END_OF_HEADER);
           continue;
         }
@@ -253,7 +273,6 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
         if (chunk[a] === DOUBLE_QUOTE) {
           this._part.filename = this._partFilename;
           this._part.originalFilename = this._partFilename;
-          this.#logger.debug(`Part filename acquired: "${this._partFilename}"`);
           this.setState(ScannerState.CHECK_FOR_FILENAME_OR_END_OF_HEADER);
           continue;
         }
@@ -293,12 +312,6 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
               lineContent = chunk.subarray(lastLinePosition, b);
             }
             this._processPartHeader(lineContent);
-            this.#logger.debug(
-              `Found a complete header line: "${lineContent
-                .toString()
-                .replaceAll("\n", "\n/n")
-                .replaceAll("\r", "/r")}"`
-            );
             lastLinePosition = b + 2;
             continue;
           }
@@ -401,14 +414,8 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
         if (charsetString.startsWith("charset=")) {
           this._part.charset = charsetString.substring("charset=".length - 1);
         }
-        this.#logger.debug(
-          `Updating part content type AND charset based on header: ${this._part.contentType} : ${this._part.charset}`
-        );
       } else {
         this._part.contentType = header.substring("content-type:".length - 1);
-        this.#logger.debug(
-          `Updating part content type based on header: ${this._part.contentType}`
-        );
       }
 
       return;
@@ -430,8 +437,15 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
   }
 
   private _appendToPartContent(content: Buffer) {
-    const typeOfPart = this._part.type;
-    const fieldName = this._part.name;
+    const part = this._part;
+
+    // if an error was raised before, skip appending
+    if (part.error != null) {
+      return;
+    }
+
+    const typeOfPart = part.type;
+    const fieldName = part.name;
 
     if (fieldName == null) {
       this.#logger.debug(
@@ -448,23 +462,45 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
           );
           return;
         }
+
         const isFieldPresentInSchema = fieldName in this.options.fileSchema;
         if (!isFieldPresentInSchema) {
           this.#logger.debug(
-            `No file schema was set for the parser! File content will be ignored`
+            `File field "${fieldName}" is not present in the file schema! Known file fields: ${Object.keys(
+              this.options.fileSchema
+            ).join(",")}`
           );
           return;
         }
 
         // initialize "stream"
-        if (this._part.content == null) {
+        if (part.content == null) {
           this._part.content = this._createFileWritableStream(
-            this._part as TFilePartInfo
+            this._part as TPartFile,
+            {}
           );
         }
 
+        part.size += content.length;
+
+        const constraints = this.options.fileSchema![fieldName];
+
+        // check file "limits"
+        if (
+          typeof constraints !== "boolean" &&
+          constraints.maxFileSize != null &&
+          constraints.maxFileSize < part.size
+        ) {
+          part.error = new BadRequest(
+            `Content size of file "${part.originalFilename!}" exceeds the max allowed file syze of ${
+              constraints.maxFileSize
+            } bytes`
+          );
+          return;
+        }
+
         // When "createFileWritableStream" returns a string we shall append the file content to it
-        if (typeof this._part.content == "string") {
+        if (typeof part.content == "string") {
           this.#logger.warn(
             'File "output" is a string, appending content to it! Note that the entirity of the file will be loaded into memory!'
           );
@@ -472,7 +508,7 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
           return;
         }
 
-        this._part.content!.write(content);
+        part.content!.write(content);
         return;
       }
 
@@ -497,7 +533,8 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
           this._part.content = "";
         }
 
-        this._part.content += content.toString();
+        this._part.content += content.toString().trim();
+        this._part.size = (this._part.content as string).length;
 
         return;
       }
@@ -510,27 +547,46 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
   }
 
   private _endPart() {
-    this.#logger.debug("End of part!", this._part);
+    // end the writable stream
+    if (this._part.content instanceof Writable) {
+      this._part.content.end();
+
+      // TODO: should we destroy the created file if there's an error ?
+      if (this._part.error != null && this._part.filename != null) {
+        // rmSync(this._part.filename)
+      }
+    }
+
+    // notify the error, if present
+    if (this._part.error != null) {
+      this.emit("error", this._part.error, { ...this._part });
+      return;
+    }
+
     const isPartOnSchema = this._isPartOnSchema(this._part);
-    if(isPartOnSchema) {
+    if (isPartOnSchema) {
       this.push(this._part);
     }
   }
 
-  private _isPartOnSchema(part : TFormDataPartInfo) {
-    const typeOfPart = part.type
-    const partName = part.name
+  private _isPartOnSchema(part: TBodyParserPartAny) {
+    const typeOfPart = part.type;
+    const partName = part.name;
 
-    if(typeOfPart == null || partName == null) {
+    if (typeOfPart == null || partName == null) {
       return false;
     }
 
-    if(typeOfPart === 'field') {
-       return this.options.bodySchema != null && partName in this.options.bodySchema;
+    if (typeOfPart === "field") {
+      return (
+        this.options.bodySchema != null && partName in this.options.bodySchema
+      );
     }
 
-    if(typeOfPart === 'file') {
-      return this.options.fileSchema != null && partName in this.options.fileSchema;
+    if (typeOfPart === "file") {
+      return (
+        this.options.fileSchema != null && partName in this.options.fileSchema
+      );
     }
 
     return false;
@@ -547,30 +603,27 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
 
     if (this._part.contentType.startsWith("text/")) {
       this._part.type = "field";
+      return;
     }
 
     this._part.type = "file";
   }
 
-  private _createFileWritableStream(info: TFilePartInfo): Writable {
+  private _createFileWritableStream(
+    info: TPartFile,
+    options?: TCreateFileStreamOptions
+  ): Writable {
     throw new Error(
       "NOOP, a create file stream should be specified in the constructor, this is probably a bug! Theres a default function assigned while conistructing this object!"
     );
   }
 
   override _flush(callback: TransformCallback): void {
-    this.#logger.debug("Multipart flush stream: ");
-    callback(null, { a: "" });
+    //@ts-ignore flushing comes just before stream end, we wont be parsing anything anymore
+    delete this._part;
+    delete this._partHeaderLineBuffer;
 
-    //super._flush(callback);
-  }
-
-  override _destroy(
-    error: Error | null,
-    callback: (error: Error | null) => void
-  ): void {
-    this.#logger.debug("Multipart destroy stream: ", callback);
-    super._destroy(error, callback);
+    callback(null);
   }
 }
 
@@ -608,29 +661,86 @@ const DOUBLE_QUOTE = 34;
 const CARRIAGE_RETURN = 13;
 const NEW_LINE = 10;
 
-type TFormDataPartInfo = {
-  type?: "field" | "file";
-  name?: string;
-  filename?: string;
-  originalFilename?: string;
-  contentType: string;
-  charset?: string;
-  content?: string | Writable;
-};
-
-export type TFilePartInfo = TFormDataPartInfo & {
-  type: "file";
-  readonly originalFilename?: string;
-};
-
 export interface TMultipartParserOptions extends TBodyParserOptions {
   boundary: string;
-  createFileWritableStream?: (info: TFilePartInfo) => Writable;
+  createFileWritableStream?: (info: TPartFile) => Writable;
+  uploadDirectory?: string;
+  preservePath?: string;
 }
 
-export function DefaultCreateFileWritableStream(info: TFilePartInfo): Writable {
+const idGenerator = customAlphabet(urlAlphabet, 21);
 
+export function DefaultCreateFileWritableStream(
+  info: TPartFile,
+  options?: TCreateFileStreamOptions
+): Writable {
   // 1. check for upload drectory
+  let uploadDirectory = options?.uploadDirectory ?? tmpdir();
 
-  throw new Error("Not implemented yet");
+  // TODO: get project root path to join with relative uploadDirectory
+  if (!uploadDirectory.startsWith("/")) {
+    uploadDirectory = join(uploadDirectory);
+  }
+
+  // option to preserve file path (??)
+  if (options?.preservePath === true) {
+    let pathFromFilename = dirname(info.filename ?? "");
+    if (pathFromFilename.length > 0)
+      uploadDirectory = join(uploadDirectory, pathFromFilename);
+  }
+
+  // create target directory if non-existant
+  try {
+    if (!existsSync(uploadDirectory)) {
+      mkdirSync(uploadDirectory, { recursive: true });
+    }
+  } catch (err) {
+    console.error(
+      "Failed to create necessary file directories that shall hold the uploaded files!",
+      err
+    );
+    throw err;
+  }
+
+  // create a new filename
+  const now = new Date();
+  let filename = `${now.getUTCFullYear().toString()}_${now
+    .getUTCMonth()
+    .toString()
+    .padStart(2, "0")}_${now.getUTCDate().toString().padStart(2, "0")}_${now
+    .getUTCHours()
+    .toString()
+    .padStart(2, "0")}_${now
+    .getUTCMinutes()
+    .toString()
+    .padStart(2, "0")}_${now.getUTCSeconds()}_${idGenerator()}`;
+
+  try {
+    const stream = createWriteStream(join(uploadDirectory, filename), {});
+
+    info.filename = filename;
+    info.content = stream;
+
+    console.log(
+      "Create file stream at : ",
+      join(uploadDirectory, filename),
+      "original_filename: ",
+      info.originalFilename
+    );
+    return stream;
+  } catch (err) {
+    console.error(
+      "Failed to create write stream to file: " +
+        join(uploadDirectory, filename),
+      err
+    );
+    throw err;
+  }
 }
+
+export interface TCreateFileStreamOptions {
+  uploadDirectory?: string;
+  preservePath?: boolean;
+}
+
+type TPartFile = Omit<TBodyParserPartFile, "content"> & { content: Writable };
