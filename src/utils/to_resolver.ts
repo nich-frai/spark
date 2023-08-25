@@ -1,4 +1,4 @@
-import { asClass, asFunction, asValue, Lifetime, LifetimeType, Resolver } from "awilix";
+import { asClass, asFunction, asValue, Lifetime, type LifetimeType, type Resolver } from "awilix";
 import type { Class, JsonValue } from "type-fest";
 import { isClass } from "./is_class.js";
 import { isFunction } from "./is_function.js";

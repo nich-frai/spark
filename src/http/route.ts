@@ -140,6 +140,8 @@ export interface TRouteCreationOptions<
   responseMiddleware?: TAnyResponseMiddleware[];
   errorHandler?: TErrorHandler[];
 
+  configure? : TConfigureRoute;
+
   handler: (
     req: TRequest<TBody, TQueryString, THeader, TCookie, TFile>,
     res: TResponse,
@@ -151,3 +153,7 @@ type TFileOptions = {
   preservePath?: boolean;
   uploadDir? : string;
 };
+
+export interface TConfigureRoute {
+  maxBodySize? : number;
+}

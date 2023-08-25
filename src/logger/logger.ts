@@ -1,6 +1,6 @@
 import { pino, type Logger, type LoggerOptions } from "pino";
 import { default as kleur } from "kleur";
-import { prettyPrintJson } from "#utils/pretty_json";
+import { prettyPrintJson } from "../utils/pretty_json.js";
 
 export interface TLogger {
   name: string;

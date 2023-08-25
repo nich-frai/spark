@@ -97,18 +97,29 @@ export class RequestFactory<V extends HTTPVersion> {
     this.#files = files;
   }
 
-  #bodyParser: BodyParser;
+  #bodyParser?: BodyParser;
+  get bodyParser() {
+    
+    if(this.#bodyParser == null && (this.files != null || this.body != null)) {
 
+      this.#bodyParser = new BodyParser(this.container, {
+        fileSchema: this.files,
+        bodySchema: this.body,
+        maxBodySize: this.options.maxBodySize,
+      });
+
+    }
+
+    return this.#bodyParser
+  }
+
+  private options : TRequestFactoryOptions
   constructor(
     private container: AwilixContainer,
     options: TRequestFactoryOptions
   ) {
-    this.#bodyParser = new BodyParser(this.container, {
-      fileSchema: options.files,
-      bodySchema: options.body,
-      maxBodySize: options.maxBodySize,
-    });
 
+    this.options = options
     this.files = options.files;
     this.body = options.body;
   }
@@ -156,13 +167,13 @@ export class RequestFactory<V extends HTTPVersion> {
 
     // should validate body
     if (this.body != null || this.files != null) {
-      const validHeaders = this.#bodyParser.validateHeaders(
+      const validHeaders = this.bodyParser!.validateHeaders(
         req.headers as Record<string, string>
       );
       if (validHeaders instanceof Error) {
         return validHeaders;
       }
-      await this.#bodyParser.parse(req);
+      await this.#bodyParser!.parse(req);
     }
 
     (req as any).provide = (

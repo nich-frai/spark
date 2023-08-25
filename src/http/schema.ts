@@ -1,28 +1,29 @@
 import type { TOptional, TSchema, TString } from "@sinclair/typebox";
-import type { FileInfo } from "busboy";
 import type { Infer } from "#type";
+import type { Readable } from "node:stream";
+
 export type TServicesRestriction =
   | [] // empty array
   | [unknown, ...unknown[]];
 
 export type TBodyRestriction = {
-  [name : string] : TSchema
-}
+  [name: string]: TSchema;
+};
 
 export type TQueryStringRestriction = {
-  [name : string]: true | TString | TOptional<TString>;
+  [name: string]: true | TString | TOptional<TString>;
 };
 
 export type TCookieRestriction = {
-  [name : string]: true | TString | TOptional<TString>;
+  [name: string]: true | TString | TOptional<TString>;
 };
 
 export type THeaderRestriction = {
-  [name : string]: true | TString | TOptional<TString>;
+  [name: string]: true | TString | TOptional<TString>;
 };
 
 export type TFileRestriction = {
-  [name : string]: true | TFileFieldOption;
+  [name: string]: true | TFileFieldOption;
 };
 
 export type TFileFieldOption = TSingleFileOption | TMultipleFileOption;
@@ -85,25 +86,83 @@ export interface TMultipleFileOption {
 }
 
 export const MimeTypes = {
-  Audio: [],
-  Image: [],
-  PDF: [],
-  Word: [],
-  Spreadsheet: [],
-  Video: [],
-  Presentation: [],
+  Audio: [
+    "audio/3gpp", // .3gp
+    "audio/3gpp2", // .3g2
+    "audio/aac",
+    "audio/ac3",
+    "audio/eac3",
+    "audio/mp4", //mp4
+    "audio/mpeg", //.mp3 OR .mpeg
+    "audio/ogg", //.ogg OR .oga
+    "audio/opus", //.opus
+    "audio/x-aiff", //.aiff
+    "audio/l24", //.
+    "audio/x-mpegurl", //.m3a
+    "audio/vorbis", //.vorbis
+    "audio/vnd.wav", //.wav
+    "audio/wav",
+    "audio/x-cdf", // .cda
+    "audio/midi", //.mid OR .midi
+    "audio/x-midi",
+    "audio/webm", //.weba
+  ],
+  Image: [
+    "image/avif", // .avif
+    "image/bmp", // .bmp
+    "image/gif", // .gif
+    "image/vnd.microsoft.icon", // .ico
+    "image/jpeg", // .jpg OR .jpeg
+    "image/png", // .png
+    "image/svg+xml", // .svg
+    "image/tiff", // .tif OR .tiff
+    "image/webp", // .webp
+  ],
+  Video: [
+    "video/x-msvideo", // .avi
+    "video/mpeg", //.mpeg
+    "video/ogg", //.ogv
+    "video/webm", //.webm
+    "video/x-matroska", //.mkv, not endoresed by IANA!
+    "video/mp4", //.mp4
+    "video/av1",
+    "video/H264",
+    "video/H265",
+    "video/jpeg",
+    "video/quicktime",
+    "video/VP8",
+    "video/VP9",
+  ],
+
+  PDF: ["application/pdf"],
+  Word: [
+    "application/msword", // .doc
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document", //.docx
+    "application/vnd.oasis.opendocument.text", // .odt
+    "application/x-abiword", // .abw
+  ],
+  Spreadsheet: [
+    "application/vnd.ms-excel", // .xls
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+    "application/vnd.oasis.opendocument.spreadsheet", // .ods
+  ],
+  Presentation: [
+    "application/vnd.ms-powerpoint", //.ppt
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation", //.pptx
+    "application/vnd.oasis.opendocument.presentation", //.odp
+  ],
 };
 
 export type TInferBody<T extends TBodyRestriction> = {
   [name in keyof T]: T[name] extends TSchema ? Infer<T[name]> : string;
-}
+};
 
 export type TInferQueryString<T extends TQueryStringRestriction> = {
   [name in keyof T]: T[name] extends TSchema ? Infer<T[name]> : string;
 };
 
-export type TOptionalKeys<T extends { [name : string] : unknown }> = {
-  [name in keyof T] : T[name] extends TOptional<TSchema> ? name : never
+export type TOptionalKeys<T extends { [name: string]: unknown }> = {
+  [name in keyof T]: T[name] extends TOptional<TSchema> ? name : never;
 }[keyof T];
 
 export type TInferHeader<T extends THeaderRestriction> = {
@@ -117,5 +176,16 @@ export type TInferCookie<T extends TCookieRestriction> = {
 };
 
 export type TInferFile<T extends TFileRestriction> = {
-  [name in keyof T]: T[name] extends TSingleFileOption ? FileInfo : FileInfo[];
+  [name in keyof T]: T[name] extends TSingleFileOption
+    ? TFileInfo
+    : TFileInfo[];
 };
+
+interface TFileInfo {
+  originalFilename: string;
+  filename: string;
+  filepath: string;
+  contentType: string;
+  size: number;
+  read(): Readable;
+}

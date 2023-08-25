@@ -13,10 +13,6 @@
       "#ws/*": ["src/websocket/*"],
       "#utils/*": ["src/utils/*"],
       "#type": ["src/typebox/index.js"],
-      "#config/*": ["config/*"],
-      "#models/*": ["app/models/*"],
-      "#services/*": ["app/services/*"],
-      "#common/*": ["app/common/*"],
       "#container": ["src/dependency_injection/index.js"],
       "#logger": ["src/logger/logger.js"],
       "#test/*": ["test/*"]
@@ -39,6 +35,6 @@
     "skipDefaultLibCheck": true,
     "skipLibCheck": true
   },
-  "include": ["run.ts", "src/**/*.ts", "examples/**/*.ts"],
+  "include": [ "./src/**/*.ts", "./run.ts", "./test/**/*.ts", "./examples/**/*.ts"],
   "exclude": ["prisma", "node_modules", ".scripts", "dist"]
 }

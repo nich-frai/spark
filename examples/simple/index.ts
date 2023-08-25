@@ -1,3 +1,3 @@
-import { HTTPServer } from "#http/server";
+import { Server } from "#http/server.js";
 
-const server = new HTTPServer()
+const server = new Server()

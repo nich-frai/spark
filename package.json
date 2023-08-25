@@ -15,17 +15,14 @@
     "node": ">=14.16"
   },
   "imports": {
-    "#http/*": "./dist/http/*.js",
+    "#http/*": "./dist/http/*",
     "#http": "./dist/http/index.js",
-    "#ws/*": "./dist/websocket/*.js",
-    "#utils/*": "./dist/utils/*.js",
-    "#config/*": "./dist/config/*.js",
-    "#models/*": "./dist/app/models/*.js",
-    "#services/*": "./dist/app/services/*.js",
-    "#common/*": "./dist/app/common/*.js",
+    "#ws/*": "./dist/websocket/*",
+    "#utils/*": "./dist/utils/*",
+    "#config/*": "./dist/config/*",
     "#container": "./dist/dependency_injection/container.js",
-    "#container/*": "./dist/dependency_injection/*.js",
-    "#logger": "./dist/core/logger/logger.js"
+    "#container/*": "./dist/dependency_injection/*",
+    "#logger": "./dist/logger/logger.js"
   },
   "exports": {
     ".": "./dist/index.js",

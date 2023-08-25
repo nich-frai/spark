@@ -1,0 +1,22 @@
+{
+  "compilerOptions": { 
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "NodeNext",
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": "./",
+    "paths": {
+      "#http/*": ["src/http/*"],
+      "#http": ["src/http/index.js"],
+      "#ws/*": ["src/websocket/*"],
+      "#utils/*": ["src/utils/*"],
+      "#type": ["src/typebox/index.js"],
+      "#container": ["src/dependency_injection/index.js"],
+      "#logger": ["src/logger/logger.js"],
+      "#test/*": ["test/*"]
+    },
+  },
+  "include": ["./src/**/*.ts"]
+}

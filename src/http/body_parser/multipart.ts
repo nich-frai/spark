@@ -1,5 +1,9 @@
-import { BadRequest, PayloadTooLarge } from "#http/http_error.js";
-import { PinoLogger } from "#logger";
+import {
+  BadRequest,
+  PayloadTooLarge,
+  UnsupportedMediaType,
+} from "#http/http_error.js";
+import { PinoLogger, type TLogger } from "#logger";
 import type { AwilixContainer } from "awilix";
 import { customAlphabet, urlAlphabet } from "nanoid";
 import { createWriteStream, existsSync, mkdirSync, rm, rmSync } from "node:fs";
@@ -11,16 +15,16 @@ import type {
   TBodyParserPartAny,
   TBodyParserPartFile,
 } from "./body_parser.js";
+import type { TFileFieldOption } from "#http/schema.js";
 
 export class MultipartParser extends Transform {
   static DefaultCreateFileWritableStream = DefaultCreateFileWritableStream;
 
-  #logger = new PinoLogger({ name: "MultipartParser" });
+  #logger: TLogger;
 
   private _contentDispositionLookupIndex = 0;
   private _partNameLookupIndex = 0;
   private _filenameLookupIndex = 0;
-  private _boundaryContentPartLookupIndex = 0;
   private _endOfStreamLookupIndex = 0;
   private _newPartLookupIndex = 0;
   private _delimiterLookupIndex = 0;
@@ -44,11 +48,21 @@ export class MultipartParser extends Transform {
 
   private bytesReceived: number = 0;
 
+  _start: number = 0;
+
+  private _processedParts: Record<string, TProcessedPartInfo> = {};
+
   constructor(
     private container: AwilixContainer,
     private options: TMultipartParserOptions
   ) {
     super({ readableObjectMode: true });
+
+    if (options.logger == null) {
+      this.#logger = new PinoLogger({ name: "MultipartParser" });
+    } else {
+      this.#logger = options.logger.child("MultipartParser");
+    }
 
     this.boundaryDelimiter = Buffer.concat([
       DELIMITER_START,
@@ -58,6 +72,8 @@ export class MultipartParser extends Transform {
     this._createFileWritableStream =
       options.createFileWritableStream ??
       MultipartParser.DefaultCreateFileWritableStream;
+
+    this._start = performance.now();
   }
 
   setState(state: TMultipartScannerState) {
@@ -96,7 +112,6 @@ export class MultipartParser extends Transform {
 
     if (state === ScannerState.ACQUIRE_PART_CONTENT) {
       this._checkTypeOfPartContent();
-      this._boundaryContentPartLookupIndex = 0;
     }
 
     if (state == ScannerState.CHECK_FOR_END_OF_STREAM) {
@@ -320,46 +335,34 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
         // we have not reached the header end and exhausted the chunk length, add everything to the "line buffer" and wait for the next iteration
         if (this.state === ScannerState.CHECK_FOR_OTHER_PART_HEADERS) {
           this._partHeaderLineBuffer = chunk.subarray(a);
-          this.#logger.debug(
-            "Have not reached EOL: ",
-            this._partHeaderLineBuffer.toString().replaceAll("\r\n", "/rn")
-          );
           break;
         }
       }
 
       // 7th task pump data until the boundary is found
       if (this.state === ScannerState.ACQUIRE_PART_CONTENT) {
-        // iterate until boundary
-        for (let b = a; b < chunk.length; b++) {
-          // If it matches the boundary, add to the index
-          if (
-            chunk[b] ===
-            this.boundaryDelimiter[this._boundaryContentPartLookupIndex]
-          ) {
-            this._boundaryContentPartLookupIndex++;
-          } else {
-            this._boundaryContentPartLookupIndex = 0;
-          }
 
-          // We reached the end of the comparison fullly matching a boundary! pump the part info and check for more
-          if (
-            this._boundaryContentPartLookupIndex ===
-            this.boundaryDelimiter.length
-          ) {
-            this._appendToPartContent(
-              chunk.subarray(a, b - this.boundaryDelimiter.length + 1)
-            );
-            this._endPart();
-            this.setState(ScannerState.CHECK_FOR_END_OF_STREAM);
-            a = b;
-            break;
-          }
+        const remainingChunk = chunk.subarray(a);
+        // search for boundary
+        const ioDelimiter = remainingChunk.indexOf(this.boundaryDelimiter);
+
+        // found it
+        if (ioDelimiter >= 0) {
+          // content to be appended
+          const appendToContent = chunk.subarray(a, a + ioDelimiter);
+          
+          this._appendToPartContent(appendToContent);
+          this._endPart();
+          this.setState(ScannerState.CHECK_FOR_END_OF_STREAM);
+
+          // fast-forward array iteration until after boundary
+          a += ioDelimiter + this.boundaryDelimiter.length - 1;
+         
+          continue;
         }
-
-        // we have reached the end of the chunk and the boundary was not found, pump the current chunk to the part content
-        if (this.state === ScannerState.ACQUIRE_PART_CONTENT) {
-          this._appendToPartContent(chunk.subarray(a));
+        // not found it, append everything to content 
+        else {
+          this._appendToPartContent(remainingChunk);
           break;
         }
       }
@@ -396,6 +399,7 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
         }
       }
     }
+    
     callback();
   }
 
@@ -415,7 +419,9 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
           this._part.charset = charsetString.substring("charset=".length - 1);
         }
       } else {
-        this._part.contentType = header.substring("content-type:".length - 1);
+        this._part.contentType = header
+          .substring("content-type:".length)
+          .trim();
       }
 
       return;
@@ -429,11 +435,6 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
       );
       return;
     }
-
-    // all other headers should be ignored
-    this.#logger.debug(
-      `Invalid/Unknown header while parsing multipart part: "${header}", ignoring it!`
-    );
   }
 
   private _appendToPartContent(content: Buffer) {
@@ -484,19 +485,12 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
         part.size += content.length;
 
         const constraints = this.options.fileSchema![fieldName];
-
-        // check file "limits"
-        if (
-          typeof constraints !== "boolean" &&
-          constraints.maxFileSize != null &&
-          constraints.maxFileSize < part.size
-        ) {
-          part.error = new BadRequest(
-            `Content size of file "${part.originalFilename!}" exceeds the max allowed file syze of ${
-              constraints.maxFileSize
-            } bytes`
-          );
-          return;
+        if (typeof constraints !== "boolean") {
+          const constraintError = this._checkFileConstraints(constraints);
+          if (constraintError != null) {
+            part.error = constraintError;
+            return;
+          }
         }
 
         // When "createFileWritableStream" returns a string we shall append the file content to it
@@ -546,14 +540,80 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
     }
   }
 
+  private _checkFileConstraints(constraint: TFileFieldOption) {
+    const name = this._part.name ?? "unknown field name";
+    const size = this._part.size;
+
+    // check file "limits"
+    if (constraint.maxFileSize != null && constraint.maxFileSize < size) {
+      return new BadRequest(
+        `Content size of file "${this._part
+          .originalFilename!}" exceeds the max allowed file syze of ${
+          constraint.maxFileSize
+        } bytes`
+      );
+    }
+
+    // check allowed mimes
+    if (
+      constraint.allowedMimeTypes != null &&
+      !constraint.allowedMimeTypes.includes(this._part.contentType)
+    ) {
+      return new UnsupportedMediaType(
+        `Content type of file "${this._part.originalFilename}" (${
+          this._part.contentType
+        }) is not supported by this endpoint! Acceptable media types: ${
+          typeof constraint.allowedMimeTypes === "string"
+            ? constraint.allowedMimeTypes
+            : constraint.allowedMimeTypes.join(", ")
+        }`
+      );
+    }
+
+    if (constraint.multiple === false && this._processedParts[name!] != null) {
+      this.#logger.debug(
+        "Constrains of current part:",
+        constraint,
+        this._part.name
+      );
+      return new BadRequest(
+        `File field "${name!}" is not set to allow multiple files!`
+      );
+    }
+
+    if (constraint.multiple === true) {
+      // max number of files
+      if (
+        constraint.max != null &&
+        this._processedParts[name] != null &&
+        this._processedParts[name].count >= constraint.max
+      ) {
+        return new BadRequest(
+          `File field "${name}" only allows up to ${constraint.max} files!`
+        );
+      }
+
+      // max size allowed
+    }
+  }
+
   private _endPart() {
     // end the writable stream
     if (this._part.content instanceof Writable) {
       this._part.content.end();
 
-      // TODO: should we destroy the created file if there's an error ?
-      if (this._part.error != null && this._part.filename != null) {
-        // rmSync(this._part.filename)
+      if (this._part.error != null && this._part.filepath != null) {
+        rm(this._part.filepath, (err) => {
+          if (err != null) {
+            this.#logger.warn(
+              `Failed to remove file uploaded and parsed by Multipart, the request to download was issued due to an error being raised while it was being processed!\nError that prevented the parser to proceed: ${
+                this._part.error!.message
+              }\nError while deleting the temp file: [${err.code ?? "ERR"}] ${
+                err.message
+              }`
+            );
+          }
+        });
       }
     }
 
@@ -563,8 +623,19 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
       return;
     }
 
-    const isPartOnSchema = this._isPartOnSchema(this._part);
-    if (isPartOnSchema) {
+    if (this._isPartOnSchema(this._part)) {
+      // update processed parts metadata
+      if (this._processedParts[this._part.name!] == null) {
+        this._processedParts[this._part.name!] = {
+          type: this._part.type as "field" | "file",
+          aggregateSize: 0,
+          count: 0,
+        };
+      }
+      this._processedParts[this._part.name!].aggregateSize += this._part.size;
+      this._processedParts[this._part.name!].count++;
+
+      // send part
       this.push(this._part);
     }
   }
@@ -622,10 +693,21 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
     //@ts-ignore flushing comes just before stream end, we wont be parsing anything anymore
     delete this._part;
     delete this._partHeaderLineBuffer;
-
+    console.log(
+      "Delta:",
+      performance.now() - this._start,
+      "\nBytes received:",
+      this.bytesReceived
+    );
     callback(null);
   }
 }
+
+type TProcessedPartInfo = {
+  type: "file" | "field";
+  count: number;
+  aggregateSize: number;
+};
 
 let s = 0;
 const ScannerState = {
@@ -666,6 +748,7 @@ export interface TMultipartParserOptions extends TBodyParserOptions {
   createFileWritableStream?: (info: TPartFile) => Writable;
   uploadDirectory?: string;
   preservePath?: string;
+  logger?: TLogger;
 }
 
 const idGenerator = customAlphabet(urlAlphabet, 21);
@@ -677,9 +760,9 @@ export function DefaultCreateFileWritableStream(
   // 1. check for upload drectory
   let uploadDirectory = options?.uploadDirectory ?? tmpdir();
 
-  // TODO: get project root path to join with relative uploadDirectory
+  // TODO: get project root path to join with relative uploadDirectory, for now using cwd
   if (!uploadDirectory.startsWith("/")) {
-    uploadDirectory = join(uploadDirectory);
+    uploadDirectory = join(process.cwd(), uploadDirectory);
   }
 
   // option to preserve file path (??)
@@ -716,22 +799,15 @@ export function DefaultCreateFileWritableStream(
     .padStart(2, "0")}_${now.getUTCSeconds()}_${idGenerator()}`;
 
   try {
-    const stream = createWriteStream(join(uploadDirectory, filename), {});
-
     info.filename = filename;
-    info.content = stream;
+    info.filepath = join(uploadDirectory, filename);
 
-    console.log(
-      "Create file stream at : ",
-      join(uploadDirectory, filename),
-      "original_filename: ",
-      info.originalFilename
-    );
+    const stream = createWriteStream(info.filepath, {});
+    info.content = stream;
     return stream;
   } catch (err) {
     console.error(
-      "Failed to create write stream to file: " +
-        join(uploadDirectory, filename),
+      "Failed to create write stream to file: " + info.filepath,
       err
     );
     throw err;

@@ -16,7 +16,7 @@ import type { Class } from "type-fest";
 
 type BodyParserClass = Class<
   Transform,
-  [AwilixContainer, TBodyParserOptions & { boundary: string }]
+  [AwilixContainer, TBodyParserOptions & { boundary: string, logger? : TLogger }]
 >;
 
 export class BodyParser {
@@ -94,6 +94,7 @@ export class BodyParser {
     const parserClass = BodyParser.Parsers[contentType];
     const parser = new parserClass(this.container, {
       ...this._options,
+      logger : this.#logger,
       boundary,
     });
 
@@ -196,6 +197,7 @@ export interface TBodyParserPartFile {
   type: "file";
   name: string;
   filename: string;
+  filepath : string;
   originalFilename?: string;
   contentType: string;
   content?: Readable;
@@ -238,6 +240,7 @@ export interface TBodyParserPartAny {
   content: unknown;
   name?: string;
   filename?: string;
+  filepath? : string;
   originalFilename?: string;
   contentType: string;
   charset?: string;

@@ -2,8 +2,9 @@ import { route } from "#http";
 import { t } from "./src/typebox/index.js";
 import { Server } from "#http/server.js";
 import { PinoLogger } from "#logger";
+import { MimeTypes } from "#http/schema.js";
 
-PinoLogger.enableDevOutput();
+PinoLogger.disableDevOutput();
 
 const server = new Server();
 
@@ -23,8 +24,10 @@ server.addRoute(
     },
     file : {
       'b' : {
-        multiple :  false,
-        maxFileSize: 1024 * 100       
+        allowedMimeTypes : MimeTypes.Image,
+        multiple :  true,
+        max : 10,
+        maxFileSize: 1024 * 1024 * 100       
       }
     },
     async handler(req) {
@@ -40,7 +43,21 @@ server.addRoute(
     async handler(req) {
       return `hello ${req.body['a b#'] ?? "World"}!`;
     }
-  })
+  }),
+  route({
+    url : "/multiple",
+    method : 'POST',
+    file : {
+      'b' : {
+        multiple :  true,
+        maxFileSize: 1024 * 100,
+        max : 2   
+      }
+    },
+    async handler(req) {
+      return `hello  "World"!`;
+    }
+  }),
 );
 
 server
