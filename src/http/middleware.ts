@@ -1,6 +1,6 @@
 import type { Resolver } from "awilix";
 import type { TRequest } from "./request.js";
-import type { HTTPResponse, TResponse } from "./response.js";
+import type { HTTPResponse } from "./response.js";
 import type {
   TBodyRestriction,
   TQueryStringRestriction,
@@ -35,7 +35,6 @@ export interface TRequestMiddleware<
   handle(
     req: TRequest<TBody, TQueryString, THeader, TCookie, TFile> &
       TRegisterDependency,
-    res: TResponse,
     ...services: TServices
   ): unknown | void | Error | HTTPResponse | Promise<Error | HTTPResponse>;
 }

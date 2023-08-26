@@ -60,16 +60,16 @@ export class PinoLogger implements TLogger {
       const outputID = this.name + "DEBUG"
       if(PinoLogger.lastOutputId === outputID) {
         this.dev(
-          ` @ ${kleur.dim().gray(`[${this.displayTime()}]`)} -> ${kleur.reset(msg)}`,
+          `${kleur.dim().gray(`[${this.displayTime()}]`)} ${kleur.reset(msg)}`,
           ...args
         );  
         return;
       }
       PinoLogger.lastOutputId = outputID;
       this.dev(
-        `${kleur.dim().gray(`[${this.displayTime()}]`)} ${kleur
+        `${kleur
           .white()
-          .bold("DEBUG")} ${kleur.reset().underline(this.name)} \n${msg}`,
+          .bold("DEBUG")} ${kleur.reset().underline(this.name)}\n${kleur.dim().bold().gray(`[${this.displayTime()}]`)} ${kleur.reset(msg)}`,
         ...args
       );
     }
@@ -174,7 +174,7 @@ export class PinoLogger implements TLogger {
         }
         process.stdout.write("\n");
       });
-      process.stdout.write("\n");
+      process.stdout.write("");
     }
   }
 

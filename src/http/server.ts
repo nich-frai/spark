@@ -128,7 +128,12 @@ export class Server<
             ...this.options!,
             ...this.options!.ssl,
           })
-        : createServer({ ...this.options });
+        : createServer({ 
+          
+          highWaterMark : 1024 * 1024, // 1mb
+          
+          ...this.options,
+        });
 
     this._server!.addListener("request", this.handle);
 

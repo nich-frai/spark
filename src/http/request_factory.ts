@@ -99,32 +99,28 @@ export class RequestFactory<V extends HTTPVersion> {
 
   #bodyParser?: BodyParser;
   get bodyParser() {
-    
-    if(this.#bodyParser == null && (this.files != null || this.body != null)) {
-
+    if (this.#bodyParser == null && (this.files != null || this.body != null)) {
       this.#bodyParser = new BodyParser(this.container, {
         fileSchema: this.files,
         bodySchema: this.body,
         maxBodySize: this.options.maxBodySize,
       });
-
     }
 
-    return this.#bodyParser
+    return this.#bodyParser;
   }
 
-  private options : TRequestFactoryOptions
+  private options: TRequestFactoryOptions;
   constructor(
     private container: AwilixContainer,
     options: TRequestFactoryOptions
   ) {
-
-    this.options = options
+    this.options = options;
     this.files = options.files;
     this.body = options.body;
   }
 
-  async fromHTTP(req: Req<V>): Promise<TImprovedRequest<V> | Error> {
+  async fromHTTP(container : AwilixContainer, req: Req<V>): Promise<TImprovedRequest<V> | Error> {
     // should validate headers?
     if (this.headers != null) {
       const validHeaders = this.#headersChecker!.Check(req.headers);
@@ -173,7 +169,11 @@ export class RequestFactory<V extends HTTPVersion> {
       if (validHeaders instanceof Error) {
         return validHeaders;
       }
-      await this.#bodyParser!.parse(req);
+      const parseResult = await this.#bodyParser!.parse(req);
+      if (parseResult instanceof Error) return parseResult;
+
+      (req as any).body = parseResult.body;
+      (req as any).files = parseResult.files;
     }
 
     (req as any).provide = (
@@ -181,12 +181,13 @@ export class RequestFactory<V extends HTTPVersion> {
       provider?: Resolver<unknown>
     ) => {
       if (typeof nameOrRecord === "object" && provider == null) {
-        this.container.register(nameOrRecord);
+        container.register(nameOrRecord);
       }
       if (typeof nameOrRecord === "string" && provider != null) {
-        this.container.register(nameOrRecord, provider);
+        container.register(nameOrRecord, provider);
       }
     };
+
     return req as TImprovedRequest<V>;
   }
 }

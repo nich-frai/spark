@@ -3,10 +3,11 @@ import {
   PayloadTooLarge,
   UnsupportedMediaType,
 } from "#http/http_error.js";
+import type { TFileFieldOption } from "#http/schema.js";
 import { PinoLogger, type TLogger } from "#logger";
 import type { AwilixContainer } from "awilix";
 import { customAlphabet, urlAlphabet } from "nanoid";
-import { createWriteStream, existsSync, mkdirSync, rm, rmSync } from "node:fs";
+import { createWriteStream, existsSync, mkdirSync, rm } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { Transform, Writable, type TransformCallback } from "node:stream";
@@ -15,7 +16,6 @@ import type {
   TBodyParserPartAny,
   TBodyParserPartFile,
 } from "./body_parser.js";
-import type { TFileFieldOption } from "#http/schema.js";
 
 export class MultipartParser extends Transform {
   static DefaultCreateFileWritableStream = DefaultCreateFileWritableStream;
@@ -47,8 +47,7 @@ export class MultipartParser extends Transform {
   private boundaryDelimiter: Buffer;
 
   private bytesReceived: number = 0;
-
-  _start: number = 0;
+  private _endOfWriting: Record<string, Promise<Error | TFileWriteEnd>> = {};
 
   private _processedParts: Record<string, TProcessedPartInfo> = {};
 
@@ -72,8 +71,6 @@ export class MultipartParser extends Transform {
     this._createFileWritableStream =
       options.createFileWritableStream ??
       MultipartParser.DefaultCreateFileWritableStream;
-
-    this._start = performance.now();
   }
 
   setState(state: TMultipartScannerState) {
@@ -127,7 +124,6 @@ export class MultipartParser extends Transform {
     callback: TransformCallback
   ): void {
     this.bytesReceived += chunk.length;
-
     if (this.bytesReceived > this.options.maxBodySize) {
       this.#logger.warn("Bytes received are greater than allowed, skip!");
       callback(new PayloadTooLarge(""));
@@ -341,7 +337,6 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
 
       // 7th task pump data until the boundary is found
       if (this.state === ScannerState.ACQUIRE_PART_CONTENT) {
-
         const remainingChunk = chunk.subarray(a);
         // search for boundary
         const ioDelimiter = remainingChunk.indexOf(this.boundaryDelimiter);
@@ -350,17 +345,17 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
         if (ioDelimiter >= 0) {
           // content to be appended
           const appendToContent = chunk.subarray(a, a + ioDelimiter);
-          
+
           this._appendToPartContent(appendToContent);
           this._endPart();
           this.setState(ScannerState.CHECK_FOR_END_OF_STREAM);
 
           // fast-forward array iteration until after boundary
           a += ioDelimiter + this.boundaryDelimiter.length - 1;
-         
+
           continue;
         }
-        // not found it, append everything to content 
+        // not found it, append everything to content
         else {
           this._appendToPartContent(remainingChunk);
           break;
@@ -399,28 +394,30 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
         }
       }
     }
-    
+
     callback();
   }
 
-  private _processPartHeader(header: string | Buffer) {
-    if (typeof header != "string") header = header.toString();
-    header = header.toLocaleLowerCase().trim();
-
+  private _processPartHeader(header: Buffer) {
     // valid header: content-type!
-    if (header.startsWith(HEADER_CONTENT_TYPE)) {
+    if (
+      header.indexOf(HEADER_CONTENT_TYPE) === 0 ||
+      header.indexOf(HEADER_CONTENT_TYPE_LOWER)
+    ) {
       if (header.indexOf(";") >= 0) {
-        this._part.contentType = header.substring(
-          HEADER_CONTENT_TYPE.length - 1,
-          header.indexOf(";")
-        );
-        const charsetString = header.substring(header.indexOf(";"));
-        if (charsetString.startsWith("charset=")) {
-          this._part.charset = charsetString.substring("charset=".length - 1);
+        this._part.contentType = header
+          .subarray(HEADER_CONTENT_TYPE.length - 1, header.indexOf(";"))
+          .toString();
+        const charsetString = header.subarray(header.indexOf(";"));
+        if (charsetString.indexOf("charset=")) {
+          this._part.charset = charsetString
+            .subarray("charset=".length - 1)
+            .toString();
         }
       } else {
         this._part.contentType = header
-          .substring("content-type:".length)
+          .subarray("content-type:".length)
+          .toString()
           .trim();
       }
 
@@ -429,7 +426,7 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
 
     // Valid but deprecated header: content-transfer-encoding
     //TODO: ? should implement a deprecated feature ?
-    if (header.startsWith("content-transfer-encoding:")) {
+    if (header.indexOf("content-transfer-encoding:") === 0) {
       this.#logger.warn(
         'A valid, but deprecated, header "content-transfer-encoding" was found! Not implemented in this parser!'
       );
@@ -600,7 +597,26 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
   private _endPart() {
     // end the writable stream
     if (this._part.content instanceof Writable) {
-      this._part.content.end();
+      const writable = this._part.content;
+
+      const name = this._part.name!;
+      const filename = this._part.filename!;
+      const size = this._part.size;
+
+      this._endOfWriting[this._part.filename!] = new Promise((res, rej) => {
+        writable.on("finish", () => {
+          res({
+            name,
+            filename,
+            size,
+          });
+        });
+        writable.on("error", (err) => {
+          res(err);
+        });
+      });
+
+      writable.end();
 
       if (this._part.error != null && this._part.filepath != null) {
         rm(this._part.filepath, (err) => {
@@ -693,13 +709,16 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
     //@ts-ignore flushing comes just before stream end, we wont be parsing anything anymore
     delete this._part;
     delete this._partHeaderLineBuffer;
-    console.log(
-      "Delta:",
-      performance.now() - this._start,
-      "\nBytes received:",
-      this.bytesReceived
-    );
-    callback(null);
+
+    // should we wait until everything was written ?
+    if (Object.values(this._endOfWriting).length > 0) {
+      Promise.allSettled(Object.values(this._endOfWriting)).then((_) => {
+        callback(null);
+      });
+    } else {
+      callback(null);
+    }
+
   }
 }
 
@@ -707,6 +726,12 @@ type TProcessedPartInfo = {
   type: "file" | "field";
   count: number;
   aggregateSize: number;
+};
+
+type TFileWriteEnd = {
+  name: string;
+  filename: string;
+  size: number;
 };
 
 let s = 0;
@@ -734,7 +759,8 @@ const HEADER_CONTENT_DISPOSITION = Buffer.from(
 const HEADER_CONTENT_DISPOSITION_LOWER = Buffer.from(
   "content-disposition: form-data;"
 );
-const HEADER_CONTENT_TYPE = "content-type:";
+const HEADER_CONTENT_TYPE = Buffer.from("Content-Type:");
+const HEADER_CONTENT_TYPE_LOWER = Buffer.from("content-type:");
 const HEADER_PART_NAME = Buffer.from('name="');
 const HEADER_FILENAME = Buffer.from('filename="');
 

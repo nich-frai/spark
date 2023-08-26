@@ -1,3 +1,4 @@
+import type { HTTPResponse } from "./response.js";
 import type { Class } from "./utils.js";
 
 export class HTTPError extends Error {
@@ -139,4 +140,5 @@ export class HTTPError extends Error {
 
  export interface TErrorHandler {
   catchErrors : Class<Error> | [Class<Error>, ...Class<Error>[]];
+  handle(error : Error, ...services : unknown[]) : HTTPResponse | Error;
  }

@@ -24,7 +24,7 @@ export class HandlerFactory {
     handler.responseMiddleware = route.responseMiddleware  ?? []
     handler.errorHandler = route.errorHandler ?? [];
 
-   // handler.handle = route.handler as any;  
+    handler.routeHandler = route.handler as any;  
 
     return handler;
   }

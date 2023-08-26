@@ -84,7 +84,6 @@ export class Route<
 
   handler: (
     req: TRequest<TBody, TQueryString, THeader, TCookie, TFile>,
-    res: TResponse,
     ...services: TServices
   ) => unknown | void;
 
@@ -144,7 +143,6 @@ export interface TRouteCreationOptions<
 
   handler: (
     req: TRequest<TBody, TQueryString, THeader, TCookie, TFile>,
-    res: TResponse,
     ...services: TServices
   ) => unknown | void;
 }

@@ -4,7 +4,7 @@ import { Server } from "#http/server.js";
 import { PinoLogger } from "#logger";
 import { MimeTypes } from "#http/schema.js";
 
-PinoLogger.disableDevOutput();
+PinoLogger.enableDevOutput();
 
 const server = new Server();
 

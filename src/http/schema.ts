@@ -1,6 +1,6 @@
 import type { TOptional, TSchema, TString } from "@sinclair/typebox";
 import type { Infer } from "#type";
-import type { Readable } from "node:stream";
+import type { Readable, ReadableOptions } from "node:stream";
 
 export type TServicesRestriction =
   | [] // empty array
@@ -181,11 +181,11 @@ export type TInferFile<T extends TFileRestriction> = {
     : TFileInfo[];
 };
 
-interface TFileInfo {
+export interface TFileInfo {
   originalFilename: string;
   filename: string;
   filepath: string;
   contentType: string;
   size: number;
-  read(): Readable;
+  readableStream(options? : ReadableOptions): Readable;
 }
