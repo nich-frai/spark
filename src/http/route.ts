@@ -25,7 +25,7 @@ export function route<
   THeader extends THeaderRestriction = Record<string, never>,
   TCookie extends TCookieRestriction = Record<string, never>,
   TFile extends TFileRestriction = Record<string, never>,
-  TServices extends TServicesRestriction = [unknown],
+  TServices extends TServicesRestriction = [unknown]
 >(
   options: TRouteCreationOptions<
     TBody,
@@ -45,7 +45,7 @@ export type TRouteCreationOptionsShort<
   THeader extends THeaderRestriction,
   TCookie extends TCookieRestriction,
   TFile extends TFileRestriction,
-  TServices extends TServicesRestriction,
+  TServices extends TServicesRestriction
 > = Omit<
   TRouteCreationOptions<
     TBody,
@@ -113,7 +113,6 @@ export class Route<
     this.errorHandler = options.errorHandler;
 
     this.handler = options.handler;
-
   }
 }
 
@@ -123,7 +122,7 @@ export interface TRouteCreationOptions<
   THeader extends THeaderRestriction = Record<string, never>,
   TCookie extends TCookieRestriction = Record<string, never>,
   TFile extends TFileRestriction = Record<string, never>,
-  TServices extends TServicesRestriction = [unknown],
+  TServices extends TServicesRestriction = [unknown]
 > {
   url: string;
   method: HTTPMethod | Lowercase<HTTPMethod> | (string & {});
@@ -139,7 +138,7 @@ export interface TRouteCreationOptions<
   responseMiddleware?: TAnyResponseMiddleware[];
   errorHandler?: TErrorHandler[];
 
-  configure? : TConfigureRoute;
+  configure?: TConfigureRoute;
 
   handler: (
     req: TRequest<TBody, TQueryString, THeader, TCookie, TFile>,
@@ -149,9 +148,55 @@ export interface TRouteCreationOptions<
 
 type TFileOptions = {
   preservePath?: boolean;
-  uploadDir? : string;
+  uploadDir?: string;
 };
 
 export interface TConfigureRoute {
-  maxBodySize? : number;
+  maxBodySize?: number;
 }
+
+type TCreateFluentRoute = {
+  url: string;
+  method: string;
+};
+
+export function fluentRoute({ url, method }: TCreateFluentRoute) {
+  return {
+    url: url,
+    method: method,
+    body<B extends TBodyRestriction>(b: B) {
+      return Object.assign(this, { _bodySchema: b });
+    },
+    files<R extends TFileRestriction>(f : R) {
+      return Object.assign(this, { _fileSchema: f });
+
+    }
+  } satisfies TFluentRoute;
+}
+
+interface TFluentRoute {
+  readonly url : string,
+  readonly method : string,
+  body<Body extends TBodyRestriction>(
+    body: Body
+  ): TAddBodyToRoute<this, Body>;
+  files<File extends TFileRestriction>(
+    file: File
+  ): TAddFileToRoute<this, File>;
+}
+
+type TAddBodyToRoute<R extends TFluentRoute, B extends TBodyRestriction> = (Omit<
+  R,
+  "body"
+> & {
+  readonly _bodySchema: B;
+} & {});
+
+type TAddFileToRoute<R extends TFluentRoute, F extends TFileRestriction> = Omit<
+  R,
+  "files"
+> & {
+  readonly _fileSchema: F;
+} & {};
+
+fluentRoute({ method: "post", url: "" }).files({}).body({}).files({}).;
