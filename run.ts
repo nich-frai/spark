@@ -12,52 +12,58 @@ server.addRoute(
   route({
     url: "/",
     method: "GET",
-   
-    async handler(req) {
-    },
+
+    async handler(req) {},
   }),
   route({
-    url : "/",
-    method : 'POST',
-    body: {
-      a: t.Optional(t.String()),
-    },
-    file : {
-      'b' : {
-        allowedMimeTypes : MimeTypes.Image,
-        multiple :  true,
-        max : 10,
-        maxFileSize: 1024 * 1024 * 100       
-      }
+    url: "/",
+    method: "POST",
+    schema: {
+      body: {
+        a: t.Optional(t.String()),
+      },
+      files: {
+        b: {
+          allowedMimeTypes: MimeTypes.Image,
+          multiple: true,
+          max: 10,
+          maxFileSize: 1024 * 1024 * 100,
+        },
+      },
     },
     async handler(req) {
       return `hello ${req.body.a ?? "World"}!`;
-    }
+      req.files.b.readableStream()
+    },
   }),
   route({
-    url : "/urlencoded",
-    method : 'POST',
-    body: {
-      'a b#': t.Optional(t.String()),
+    url: "/urlencoded",
+    method: "POST",
+    schema: {
+      body: {
+        "a b#": t.Optional(t.String()),
+      },
     },
     async handler(req) {
-      return `hello ${req.body['a b#'] ?? "World"}!`;
-    }
+      return `hello ${req.body["a b#"] ?? "World"}!`;
+    },
   }),
   route({
-    url : "/multiple",
-    method : 'POST',
-    file : {
-      'b' : {
-        multiple :  true,
-        maxFileSize: 1024 * 100,
-        max : 2   
-      }
+    url: "/multiple",
+    method: "POST",
+    schema: {
+      files: {
+        b: {
+          multiple: true,
+          maxFileSize: 1024 * 100,
+          max: 2,
+        },
+      },
     },
     async handler(req) {
       return `hello  "World"!`;
-    }
-  }),
+    },
+  })
 );
 
 server

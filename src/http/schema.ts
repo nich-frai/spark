@@ -2,27 +2,27 @@ import type { TOptional, TSchema, TString } from "@sinclair/typebox";
 import type { Infer } from "#type";
 import type { Readable, ReadableOptions } from "node:stream";
 
-export type TServicesRestriction =
+export type TServicesSchema =
   | [] // empty array
   | [unknown, ...unknown[]];
 
-export type TBodyRestriction = {
+export type TBodySchema = {
   [name: string]: TSchema;
 };
 
-export type TQueryStringRestriction = {
+export type TQueryStringSchema = {
   [name: string]: true | TString | TOptional<TString>;
 };
 
-export type TCookieRestriction = {
+export type TCookieSchema = {
   [name: string]: true | TString | TOptional<TString>;
 };
 
-export type THeaderRestriction = {
+export type THeaderSchema = {
   [name: string]: true | TString | TOptional<TString>;
 };
 
-export type TFileRestriction = {
+export type TFileSchema = {
   [name: string]: true | TFileFieldOption;
 };
 
@@ -34,7 +34,6 @@ export type TFileFieldOption = TSingleFileOption | TMultipleFileOption;
  * Defined the field options that will accept a single file (not-multiple)
  */
 export interface TSingleFileOption {
-  multiple?: undefined | false;
   /**
    * Max file size
    * -------------
@@ -85,6 +84,14 @@ export interface TMultipleFileOption {
   max?: number;
 }
 
+
+export interface TRouteSchema {
+  body? : TBodySchema;
+  files? : TFileSchema;
+  cookies? : TCookieSchema;
+  queryString? : TQueryStringSchema;
+  headers? : THeaderSchema;
+}
 export const MimeTypes = {
   Audio: [
     "audio/3gpp", // .3gp
@@ -153,11 +160,11 @@ export const MimeTypes = {
   ],
 };
 
-export type TInferBody<T extends TBodyRestriction> = {
+export type TInferBody<T extends TBodySchema> = {
   [name in keyof T]: T[name] extends TSchema ? Infer<T[name]> : string;
 };
 
-export type TInferQueryString<T extends TQueryStringRestriction> = {
+export type TInferQueryString<T extends TQueryStringSchema> = {
   [name in keyof T]: T[name] extends TSchema ? Infer<T[name]> : string;
 };
 
@@ -165,17 +172,17 @@ export type TOptionalKeys<T extends { [name: string]: unknown }> = {
   [name in keyof T]: T[name] extends TOptional<TSchema> ? name : never;
 }[keyof T];
 
-export type TInferHeader<T extends THeaderRestriction> = {
+export type TInferHeader<T extends THeaderSchema> = {
   [name in keyof T]: T[name] extends TSchema ? Infer<T[name]> : string;
 } & {
   [name: string]: string | undefined;
 };
 
-export type TInferCookie<T extends TCookieRestriction> = {
+export type TInferCookie<T extends TCookieSchema> = {
   [name in keyof T]: T[name] extends TSchema ? Infer<T[name]> : string;
 };
 
-export type TInferFile<T extends TFileRestriction> = {
+export type TInferFile<T extends TFileSchema> = {
   [name in keyof T]: T[name] extends TSingleFileOption
     ? TFileInfo
     : TFileInfo[];

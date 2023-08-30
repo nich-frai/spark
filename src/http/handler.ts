@@ -16,11 +16,11 @@ import type {
 import { RequestFactory } from "./request_factory.js";
 import { HTTPResponse, type TResponse } from "./response.js";
 import type {
-  TBodyRestriction,
-  TCookieRestriction,
-  TFileRestriction,
-  THeaderRestriction,
-  TQueryStringRestriction,
+  TBodySchema,
+  TCookieSchema,
+  TFileSchema,
+  THeaderSchema,
+  TQueryStringSchema,
 } from "./schema.js";
 import type { TRequest } from "./request.js";
 type TAnyHTTPMethod = HTTPMethod | Lowercase<HTTPMethod> | (string & {});
@@ -53,11 +53,11 @@ export class Handler<
   method: TAnyHTTPMethod = "GET";
   url: string = "/";
 
-  bodySchema: TBodyRestriction | undefined = undefined;
-  fileSchema: TFileRestriction | undefined = undefined;
-  querySchema: TQueryStringRestriction | undefined = undefined;
-  cookieSchema: TCookieRestriction | undefined = undefined;
-  headerSchema: THeaderRestriction | undefined = undefined;
+  bodySchema: TBodySchema | undefined = undefined;
+  fileSchema: TFileSchema | undefined = undefined;
+  querySchema: TQueryStringSchema | undefined = undefined;
+  cookieSchema: TCookieSchema | undefined = undefined;
+  headerSchema: THeaderSchema | undefined = undefined;
 
   routeHandler?: (
     req: TRequest<any, any, any, any, any>,

@@ -5,12 +5,12 @@ import type { TErrorHandler } from "./http_error.js";
 import type { TAnyRequestMiddleware, TAnyResponseMiddleware } from "./middleware.js";
 import { Route, type TAnyRoute, type TRouteCreationOptionsShort } from "./route.js";
 import type {
-  TBodyRestriction,
-  TCookieRestriction,
-  TFileRestriction,
-  THeaderRestriction,
-  TQueryStringRestriction,
-  TServicesRestriction,
+  TBodySchema,
+  TCookieSchema,
+  TFileSchema,
+  THeaderSchema,
+  TQueryStringSchema,
+  TServicesSchema,
 } from "./schema.js";
 
 
@@ -76,12 +76,12 @@ Either:
   }
 
   GET<
-    TBody extends TBodyRestriction = {},
-    TQueryString extends TQueryStringRestriction = {},
-    THeader extends THeaderRestriction = {},
-    TCookie extends TCookieRestriction = {},
-    TFile extends TFileRestriction = {},
-    TServices extends TServicesRestriction = [unknown, ...unknown[]]
+    TBody extends TBodySchema = {},
+    TQueryString extends TQueryStringSchema = {},
+    THeader extends THeaderSchema = {},
+    TCookie extends TCookieSchema = {},
+    TFile extends TFileSchema = {},
+    TServices extends TServicesSchema = [unknown, ...unknown[]]
   >(
     url: string,
     options: TRouteCreationOptionsShort<
@@ -111,12 +111,12 @@ Either:
   }
 
   POST<
-    TBody extends TBodyRestriction,
-    TQueryString extends TQueryStringRestriction,
-    THeader extends THeaderRestriction,
-    TCookie extends TCookieRestriction,
-    TFile extends TFileRestriction,
-    TServices extends TServicesRestriction
+    TBody extends TBodySchema,
+    TQueryString extends TQueryStringSchema,
+    THeader extends THeaderSchema,
+    TCookie extends TCookieSchema,
+    TFile extends TFileSchema,
+    TServices extends TServicesSchema
   >(
     url: string,
     options: TRouteCreationOptionsShort<
@@ -146,12 +146,12 @@ Either:
   }
 
   PUT<
-    TBody extends TBodyRestriction,
-    TQueryString extends TQueryStringRestriction,
-    THeader extends THeaderRestriction,
-    TCookie extends TCookieRestriction,
-    TFile extends TFileRestriction,
-    TServices extends TServicesRestriction
+    TBody extends TBodySchema,
+    TQueryString extends TQueryStringSchema,
+    THeader extends THeaderSchema,
+    TCookie extends TCookieSchema,
+    TFile extends TFileSchema,
+    TServices extends TServicesSchema
   >(
     url: string,
     options: TRouteCreationOptionsShort<
@@ -181,12 +181,12 @@ Either:
   }
 
   PATCH<
-    TBody extends TBodyRestriction,
-    TQueryString extends TQueryStringRestriction,
-    THeader extends THeaderRestriction,
-    TCookie extends TCookieRestriction,
-    TFile extends TFileRestriction,
-    TServices extends TServicesRestriction
+    TBody extends TBodySchema,
+    TQueryString extends TQueryStringSchema,
+    THeader extends THeaderSchema,
+    TCookie extends TCookieSchema,
+    TFile extends TFileSchema,
+    TServices extends TServicesSchema
   >(
     url: string,
     options: TRouteCreationOptionsShort<
@@ -216,12 +216,12 @@ Either:
   }
 
   DELETE<
-    TBody extends TBodyRestriction,
-    TQueryString extends TQueryStringRestriction,
-    THeader extends THeaderRestriction,
-    TCookie extends TCookieRestriction,
-    TFile extends TFileRestriction,
-    TServices extends TServicesRestriction
+    TBody extends TBodySchema,
+    TQueryString extends TQueryStringSchema,
+    THeader extends THeaderSchema,
+    TCookie extends TCookieSchema,
+    TFile extends TFileSchema,
+    TServices extends TServicesSchema
   >(
     url: string,
     options: TRouteCreationOptionsShort<
@@ -251,12 +251,12 @@ Either:
   }
 
   route<
-    TBody extends TBodyRestriction,
-    TQueryString extends TQueryStringRestriction,
-    THeader extends THeaderRestriction,
-    TCookie extends TCookieRestriction,
-    TFile extends TFileRestriction,
-    TServices extends TServicesRestriction
+    TBody extends TBodySchema,
+    TQueryString extends TQueryStringSchema,
+    THeader extends THeaderSchema,
+    TCookie extends TCookieSchema,
+    TFile extends TFileSchema,
+    TServices extends TServicesSchema
   >(
     method: HTTPMethod | Lowercase<HTTPMethod> | (string & {}),
     url: string,
