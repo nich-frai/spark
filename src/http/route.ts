@@ -1,4 +1,3 @@
-import type { ServerResponse } from "node:http";
 import type { Resolver } from "awilix";
 import type { HTTPMethod } from "find-my-way";
 import type {
@@ -6,7 +5,6 @@ import type {
   TAnyResponseMiddleware,
 } from "./middleware.js";
 import type { TRequest } from "./request.js";
-import type { TResponse } from "./response.js";
 import type {
   TBodyRestriction,
   TCookieRestriction,
@@ -155,48 +153,3 @@ export interface TConfigureRoute {
   maxBodySize?: number;
 }
 
-type TCreateFluentRoute = {
-  url: string;
-  method: string;
-};
-
-export function fluentRoute({ url, method }: TCreateFluentRoute) {
-  return {
-    url: url,
-    method: method,
-    body<B extends TBodyRestriction>(b: B) {
-      return Object.assign(this, { _bodySchema: b });
-    },
-    files<R extends TFileRestriction>(f : R) {
-      return Object.assign(this, { _fileSchema: f });
-
-    }
-  } satisfies TFluentRoute;
-}
-
-interface TFluentRoute {
-  readonly url : string,
-  readonly method : string,
-  body<Body extends TBodyRestriction>(
-    body: Body
-  ): TAddBodyToRoute<this, Body>;
-  files<File extends TFileRestriction>(
-    file: File
-  ): TAddFileToRoute<this, File>;
-}
-
-type TAddBodyToRoute<R extends TFluentRoute, B extends TBodyRestriction> = (Omit<
-  R,
-  "body"
-> & {
-  readonly _bodySchema: B;
-} & {});
-
-type TAddFileToRoute<R extends TFluentRoute, F extends TFileRestriction> = Omit<
-  R,
-  "files"
-> & {
-  readonly _fileSchema: F;
-} & {};
-
-fluentRoute({ method: "post", url: "" }).files({}).body({}).files({}).;

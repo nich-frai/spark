@@ -784,7 +784,7 @@ export function DefaultCreateFileWritableStream(
   options?: TCreateFileStreamOptions
 ): Writable {
   // 1. check for upload drectory
-  let uploadDirectory = options?.uploadDirectory ?? tmpdir();
+  let uploadDirectory = options?.uploadDirectory ?? join(tmpdir(), 'spark_uploads');
 
   // TODO: get project root path to join with relative uploadDirectory, for now using cwd
   if (!uploadDirectory.startsWith("/")) {
