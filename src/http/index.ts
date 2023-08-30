@@ -27,19 +27,19 @@ export {
 
 export { Router } from "./router.js";
 export type {
-  TBodyRestriction,
-  TCookieRestriction,
+  TBodySchema as TBodyRestriction,
+  TCookieSchema as TCookieRestriction,
   TFileFieldOption,
-  TFileRestriction,
-  THeaderRestriction,
+  TFileSchema as TFileRestriction,
+  THeaderSchema as THeaderRestriction,
   TInferBody,
   TInferCookie,
   TInferFile,
   TInferHeader,
   TInferQueryString,
   TMultipleFileOption,
-  TQueryStringRestriction,
-  TServicesRestriction,
+  TQueryStringSchema as TQueryStringRestriction,
+  TServicesSchema as TServicesRestriction,
   TSingleFileOption,
 } from "./schema.js";
 

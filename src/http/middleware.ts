@@ -2,22 +2,22 @@ import type { Resolver } from "awilix";
 import type { TRequest } from "./request.js";
 import type { HTTPResponse } from "./response.js";
 import type {
-  TBodyRestriction,
-  TQueryStringRestriction,
-  THeaderRestriction,
-  TCookieRestriction,
-  TFileRestriction,
-  TServicesRestriction,
+  TBodySchema,
+  TQueryStringSchema,
+  THeaderSchema,
+  TCookieSchema,
+  TFileSchema,
+  TServicesSchema,
 } from "./schema.js";
 import type { TErrorHandler } from "./http_error.js";
 
 export interface TRequestMiddleware<
-  TBody extends TBodyRestriction,
-  TQueryString extends TQueryStringRestriction,
-  THeader extends THeaderRestriction,
-  TCookie extends TCookieRestriction,
-  TFile extends TFileRestriction,
-  TServices extends TServicesRestriction
+  TBody extends TBodySchema,
+  TQueryString extends TQueryStringSchema,
+  THeader extends THeaderSchema,
+  TCookie extends TCookieSchema,
+  TFile extends TFileSchema,
+  TServices extends TServicesSchema
 > {
   // schema
   body?: TBody;

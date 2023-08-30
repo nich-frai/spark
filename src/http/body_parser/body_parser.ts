@@ -7,9 +7,9 @@ import { PinoLogger, type TLogger } from "#logger";
 import type { HTTPVersion, Req } from "find-my-way";
 import { Writable, type Transform, Readable, Duplex } from "node:stream";
 import type {
-  TBodyRestriction,
+  TBodySchema,
   TFileInfo,
-  TFileRestriction,
+  TFileSchema,
 } from "../schema.js";
 import { JSONParser } from "./json.js";
 import { MultipartParser } from "./multipart.js";
@@ -221,8 +221,8 @@ const DEFAULT_BODY_PARSER_OPTIONS: TBodyParserOptions = {
 export interface TBodyParserOptions {
   maxBodySize: number;
   allowedContentTypes: string[];
-  bodySchema?: TBodyRestriction;
-  fileSchema?: TFileRestriction;
+  bodySchema?: TBodySchema;
+  fileSchema?: TFileSchema;
 }
 export type TBodyParserCreationOptions = Partial<TBodyParserOptions>;
 

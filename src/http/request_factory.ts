@@ -2,11 +2,11 @@ import { Type, type TSchema } from "@sinclair/typebox";
 import { TypeCheck, TypeCompiler } from "@sinclair/typebox/compiler";
 import type { HTTPVersion, Req } from "find-my-way";
 import type {
-  TBodyRestriction,
-  TCookieRestriction,
-  TFileRestriction,
-  THeaderRestriction,
-  TQueryStringRestriction,
+  TBodySchema,
+  TCookieSchema,
+  TFileSchema,
+  THeaderSchema,
+  TQueryStringSchema,
 } from "./schema.js";
 import type { AwilixContainer, Resolver } from "awilix";
 import { BadRequest } from "./http_error.js";
@@ -16,23 +16,23 @@ import { BodyParser } from "./body_parser/index.js";
 
 export class RequestFactory<V extends HTTPVersion> {
   #bodyChecker: TypeCheck<TSchema> | undefined;
-  #body?: TBodyRestriction;
+  #body?: TBodySchema;
   get body() {
     return this.#body;
   }
-  set body(body: TBodyRestriction | undefined) {
+  set body(body: TBodySchema | undefined) {
     this.#body = body;
     if (body != null)
       this.#bodyChecker = TypeCompiler.Compile(Type.Object(body));
     else this.#bodyChecker = undefined;
   }
 
-  #headers?: THeaderRestriction;
+  #headers?: THeaderSchema;
   #headersChecker: TypeCheck<TSchema> | undefined;
   get headers() {
     return this.#headers;
   }
-  set headers(header: THeaderRestriction | undefined) {
+  set headers(header: THeaderSchema | undefined) {
     this.#headers = header;
     if (header != null) {
       const normalizedSchema: { [name: string]: TSchema } = {};
@@ -47,12 +47,12 @@ export class RequestFactory<V extends HTTPVersion> {
     }
   }
 
-  #cookies?: TCookieRestriction;
+  #cookies?: TCookieSchema;
   #cookiesChecker?: TypeCheck<TSchema> | undefined;
   get cookies() {
     return this.#cookies;
   }
-  set cookies(cookies: TCookieRestriction | undefined) {
+  set cookies(cookies: TCookieSchema | undefined) {
     this.#cookies = cookies;
     if (this.#cookies == null) this.#cookiesChecker = undefined;
     else {
@@ -68,12 +68,12 @@ export class RequestFactory<V extends HTTPVersion> {
     }
   }
 
-  #query?: TQueryStringRestriction;
+  #query?: TQueryStringSchema;
   #queryChecker?: TypeCheck<TSchema> | undefined;
   get query() {
     return this.#query;
   }
-  set query(query: TQueryStringRestriction | undefined) {
+  set query(query: TQueryStringSchema | undefined) {
     this.#query = query;
     if (this.#query == null) this.#queryChecker = undefined;
     else {
@@ -87,13 +87,13 @@ export class RequestFactory<V extends HTTPVersion> {
     }
   }
 
-  #files?: TFileRestriction;
+  #files?: TFileSchema;
   // TODO: create file validation function
   #filesChecker?: unknown | undefined;
   get files() {
     return this.#files;
   }
-  set files(files: TFileRestriction | undefined) {
+  set files(files: TFileSchema | undefined) {
     this.#files = files;
   }
 
@@ -206,11 +206,11 @@ function extractContentType(header: string | undefined) {
 }
 
 export interface TRequestFactoryOptions {
-  files?: TFileRestriction;
-  body?: TBodyRestriction;
-  header?: THeaderRestriction;
-  query?: TQueryStringRestriction;
-  cookies?: TCookieRestriction;
+  files?: TFileSchema;
+  body?: TBodySchema;
+  header?: THeaderSchema;
+  query?: TQueryStringSchema;
+  cookies?: TCookieSchema;
 
   maxBodySize?: number;
 }

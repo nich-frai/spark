@@ -567,7 +567,8 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
       );
     }
 
-    if (constraint.multiple === false && this._processedParts[name!] != null) {
+    // @ts-ignore TS should NOT complain here just narrow the type, cmon...
+    if (constraint.multiple !== true && this._processedParts[name!] != null) {
       this.#logger.debug(
         "Constrains of current part:",
         constraint,
@@ -578,7 +579,7 @@ Header position: ${this._contentDispositionLookupIndex}, value: ${
       );
     }
 
-    if (constraint.multiple === true) {
+    if ('multiple' in constraint && constraint.multiple === true) {
       // max number of files
       if (
         constraint.max != null &&
