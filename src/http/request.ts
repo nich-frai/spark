@@ -12,7 +12,7 @@ import type {
   TQueryStringSchema,
   TRouteSchema,
 } from "./schema.js";
-import type { Merge } from "type-fest";
+import type { Expand } from "./utils.js";
 
 export type TRequest<TSchema extends TRouteSchema> = Req<HTTPVersion> &
   // File infer
@@ -44,5 +44,3 @@ export type TRequest<TSchema extends TRouteSchema> = Req<HTTPVersion> &
       : { cookies: Expand<TInferCookie<TSchema["cookies"]>>  }
     : // URL params, will always be strings ? infer basic params from url ?
       {}) & { urlParams: Record<string | number, string | undefined> } ;
-
-export type Expand<T> = T extends unknown ? { [K in keyof T]: T[K] } : never;

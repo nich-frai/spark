@@ -1,6 +1,11 @@
 import { Type, type TSchema } from "@sinclair/typebox";
 import { TypeCheck, TypeCompiler } from "@sinclair/typebox/compiler";
+import type { AwilixContainer, Resolver } from "awilix";
 import type { HTTPVersion, Req } from "find-my-way";
+import { BodyParser } from "./parser/index.js";
+import { cookieParser } from "./parser/cookie.js";
+import { BadRequest } from "./http_error.js";
+import { queryStringParser } from "./parser/query_string.js";
 import type {
   TBodySchema,
   TCookieSchema,
@@ -9,11 +14,6 @@ import type {
   TQueryStringSchema,
   TRouteSchema,
 } from "./schema.js";
-import type { AwilixContainer, Resolver } from "awilix";
-import { BadRequest } from "./http_error.js";
-import { cookieParser } from "./cookie.js";
-import { queryStringParser } from "./query_string.js";
-import { BodyParser } from "./body_parser/index.js";
 
 export class RequestFactory<V extends HTTPVersion> {
   #bodyChecker: TypeCheck<TSchema> | undefined;

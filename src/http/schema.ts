@@ -92,6 +92,14 @@ export interface TRouteSchema {
   queryString? : TQueryStringSchema;
   headers? : THeaderSchema;
 }
+
+export interface TMiddlewareSchema {
+  body? : TBodySchema;
+  cookies? : TCookieSchema;
+  queryString? : TQueryStringSchema;
+  headers? : THeaderSchema;
+}
+
 export const MimeTypes = {
   Audio: [
     "audio/3gpp", // .3gp

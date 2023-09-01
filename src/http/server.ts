@@ -66,8 +66,8 @@ export class Server<
 
   handle(request: IncomingMessage, response: ServerResponse) {
     this._logger.debug("New incoming request for the server!", {
-      url : request.url,
-      method : request.method,
+      url: request.url,
+      method: request.method,
     });
     return this._router.lookup(
       request as Req<Version>,
@@ -88,9 +88,7 @@ export class Server<
     );
 
     for (let route of routes) {
-      const handler = factory.fromRoute<Version>(
-        route
-      );
+      const handler = factory.fromRoute<Version>(route);
       this._handlers.push(handler);
       this._router.on(
         handler.method.toLocaleUpperCase() as HTTPMethod,
@@ -128,12 +126,11 @@ export class Server<
             ...this.options!,
             ...this.options!.ssl,
           })
-        : createServer({ 
-          
-          highWaterMark : 1024 * 1024, // 1mb
-          
-          ...this.options,
-        });
+        : createServer({
+            highWaterMark: 1024 * 1024, // 1mb
+
+            ...this.options,
+          });
 
     this._server!.addListener("request", this.handle);
 

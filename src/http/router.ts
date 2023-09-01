@@ -3,7 +3,7 @@ import type { HTTPMethod } from "find-my-way";
 import { join } from "node:path";
 import type { TErrorHandler } from "./http_error.js";
 import type {
-  TAnyRequestMiddleware,
+  TAnyMiddleware,
 } from "./middleware.js";
 import {
   Route,
@@ -20,7 +20,7 @@ export class Router {
   protected _routes: TAnyRoute[] = [];
   protected _childRouters: [string /* path */, Router][] = [];
 
-  protected _requestMiddleware: TAnyRequestMiddleware[] = [];
+  protected _requestMiddleware: TAnyMiddleware[] = [];
   protected _errorHandlers: TErrorHandler[] = [];
 
   addRoute(...routes: TAnyRoute[]) {
@@ -28,7 +28,7 @@ export class Router {
     return this;
   }
 
-  useOnRequest(...middleware: TAnyRequestMiddleware[]) {
+  useOnRequest(...middleware: TAnyMiddleware[]) {
     this._requestMiddleware.push(...middleware);
   }
 

@@ -9,21 +9,11 @@ import {
   NotImplemented,
   type TErrorHandler,
 } from "./http_error.js";
-import type {
-  TAnyRequestMiddleware,
-  TAnyResponseMiddleware,
-} from "./middleware.js";
-import { RequestFactory } from "./request_factory.js";
-import { HTTPResponse, type TResponse } from "./response.js";
-import type {
-  TBodySchema,
-  TCookieSchema,
-  TFileSchema,
-  THeaderSchema,
-  TQueryStringSchema,
-  TRouteSchema,
-} from "./schema.js";
+import type { TAnyMiddleware } from "./middleware.js";
 import type { TRequest } from "./request.js";
+import { RequestFactory } from "./request_factory.js";
+import { HTTPResponse } from "./response.js";
+import type { TRouteSchema } from "./schema.js";
 type TAnyHTTPMethod = HTTPMethod | Lowercase<HTTPMethod> | (string & {});
 
 type TFnServices = string[];
@@ -54,15 +44,26 @@ export class Handler<
   method: TAnyHTTPMethod = "GET";
   url: string = "/";
 
-  schema? : TRouteSchema;
+  schema: TRouteSchema = {};
+  compileFileSchema() {
+    for (let middleware of this.requestMiddleware) {
+      if (middleware.schema?.files != null) {
+        if (this.schema.files == null) {
+          this.schema.files = middleware.schema!.files;
+        } else {
+          this.schema.files = {
+            ...middleware.schema!.files,
+            ...this.schema.files!,
+          };
+        }
+      }
+    }
+  }
 
-
-  routeHandler?: (
-    req: TRequest<any>,
-    ...services: unknown[]
-  ) => unknown | void;
+  routeHandler?: (req: TRequest<any>, ...services: unknown[]) => unknown | void;
   #routeHandlerServices?: string[];
-  get routeHandlerServices() {[]
+  get routeHandlerServices() {
+    [];
     if (this.#routeHandlerServices == null) {
       this.#routeHandlerServices =
         this.routeHandler != null
@@ -83,18 +84,7 @@ export class Handler<
     }
     return this.#requestMiddlewareServices!;
   }
-  requestMiddleware: TAnyRequestMiddleware[] = [];
-
-  #responseMiddlewareServices?: TFnServices[];
-  private get responseMiddlewareServices() {
-    if (this.#responseMiddlewareServices == null) {
-      this.#responseMiddlewareServices = this.responseMiddleware.map((m) => {
-        return extractFunctionParameters(m.handle).slice(1);
-      });
-    }
-    return this.#responseMiddlewareServices;
-  }
-  responseMiddleware: TAnyResponseMiddleware[] = [];
+  requestMiddleware: TAnyMiddleware[] = [];
 
   #errorHandlerServices?: TFnServices[];
   private get errorHandlerServices() {
@@ -112,7 +102,10 @@ export class Handler<
   #requestFactory?: RequestFactory<Version>;
   private get requestFactory() {
     if (this.#requestFactory == null) {
-      this.#requestFactory = new RequestFactory<Version>(this.container, this.schema ?? {});
+      this.#requestFactory = new RequestFactory<Version>(
+        this.container,
+        this.schema 
+      );
     }
     return this.#requestFactory!;
   }
@@ -120,7 +113,7 @@ export class Handler<
   async handle(req: Req<Version>, res: Res<Version>, ctx: unknown) {
     const container = this.container.createScope();
 
-    container.register('serverResponse', asValue(res))
+    container.register("serverResponse", asValue(res));
 
     this.#logger.debug("Matched handler! Will now process incoming request!", {
       url: req.url,
@@ -259,16 +252,16 @@ export class Handler<
   }
 
   private sendResponse(res: Res<Version>, message: Error | HTTPResponse) {
-
-    if(res.writableEnded) {
-      this.#logger.debug(`SendResponse is a NOOP because ServerResponse has "writableEnded" as true!`);
+    if (res.writableEnded) {
+      this.#logger.debug(
+        `SendResponse is a NOOP because ServerResponse has "writableEnded" as true!`
+      );
       return;
     }
 
     if (message instanceof Error) {
-
-      // If headers were not sent we can set the status code 
-      if(!res.headersSent) {
+      // If headers were not sent we can set the status code
+      if (!res.headersSent) {
         if (message instanceof HTTPError) {
           res.statusCode = message.status;
         } else {
@@ -279,8 +272,6 @@ export class Handler<
       res.end(message.message);
       return;
     }
-
-    
   }
 
   private applyRequestMiddleware(

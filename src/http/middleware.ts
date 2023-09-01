@@ -3,11 +3,12 @@ import type { TErrorHandler } from "./http_error.js";
 import type { TRequest } from "./request.js";
 import type { HTTPResponse } from "./response.js";
 import type {
+  TMiddlewareSchema,
   TRouteSchema,
   TServicesSchema
 } from "./schema.js";
 
-export interface TRequestMiddleware<
+export interface TMiddleware<
   TSchema extends TRouteSchema,
   TServices extends TServicesSchema
 > {
@@ -25,19 +26,18 @@ export interface TRequestMiddleware<
   ): unknown | void | Error | HTTPResponse | Promise<Error | HTTPResponse>;
 }
 
-export interface TResponseMiddleware {
-  handle(
-    response: HTTPResponse
-  ): HTTPResponse | Error | Promise<HTTPResponse | Error>;
-}
-
 type TRegisterDependency = {
   registerDependency(name: string, provider: Resolver<unknown>): void;
   registerDependency(register: Record<string, Resolver<unknown>>): void;
 };
 
-export type TAnyRequestMiddleware = TRequestMiddleware<any, any>;
+export type TAnyMiddleware = TMiddleware<any, any>;
 
-export function requestMiddleware() {}
+export function requestMiddleware<
+  TSchema extends TMiddlewareSchema,
+  TServices extends TServicesSchema
+>(options : TMiddleware<TSchema, TServices>) {
+  return options;
+}
 
 

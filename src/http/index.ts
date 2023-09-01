@@ -2,7 +2,7 @@ export {
   type ISetCookieOptions,
   cookieParser,
   serializeCookie,
-} from "./cookie.js";
+} from "./parser/cookie.js";
 
 export { Handler } from "./handler.js";
 
@@ -10,8 +10,8 @@ export * as error from "./http_error.js";
 export { HTTPError } from "./http_error.js";
 
 export type {
-  TAnyRequestMiddleware as TAnyMiddleware,
-  TRequestMiddleware,
+  TAnyMiddleware as TAnyMiddleware,
+  TMiddleware as TRequestMiddleware,
   TResponseMiddleware,
 } from "./middleware.js";
 

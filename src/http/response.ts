@@ -2,7 +2,7 @@ import { ServerResponse } from "node:http";
 
 import { PinoLogger, type TLogger } from "../logger/logger.js";
 import { HTTPError, InternalServerError } from "./http_error.js";
-import { type ISetCookieOptions, serializeCookie } from "./cookie.js";
+import { type ISetCookieOptions, serializeCookie } from "./parser/cookie.js";
 import type { HTTPVersion, Res } from "find-my-way";
 
 export type TResponse = Res<HTTPVersion>;

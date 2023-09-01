@@ -1,4 +1,4 @@
-import { BadRequest } from "./http_error.js";
+import { BadRequest } from "../http_error.js";
 
 export function cookieParser(cookieStr : string) : Record<string, string> {
   if(cookieStr.length === 0){

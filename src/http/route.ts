@@ -2,7 +2,7 @@ import type { Resolver } from "awilix";
 import type { HTTPMethod } from "find-my-way";
 import type { TErrorHandler } from "./http_error.js";
 import type {
-  TAnyRequestMiddleware,
+  TAnyMiddleware,
 } from "./middleware.js";
 import type { TRequest } from "./request.js";
 import type {
@@ -34,7 +34,7 @@ export class Route<
   schema?: TSchema;
   fileOptions?: TFileOptions;
 
-  requestMiddleware?: TAnyRequestMiddleware[];
+  requestMiddleware?: TAnyMiddleware[];
   errorHandler?: TErrorHandler[];
 
   inject: Record<string, Resolver<unknown>> = {};
@@ -68,7 +68,7 @@ export interface TRouteCreationOptions<
     ? TFileOptions
     : never;
 
-  requestMiddleware?: TAnyRequestMiddleware[];
+  requestMiddleware?: TAnyMiddleware[];
   errorHandler?: TErrorHandler[];
 
   configure?: TConfigureRoute;

@@ -1,4 +1,4 @@
-import { MultipartParser } from "#http/body_parser/multipart.js";
+import { MultipartParser } from "#http/parser/multipart.js";
 import { PinoLogger } from "#logger";
 import { createContainer } from "awilix";
 import { inspect } from "util";
