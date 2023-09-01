@@ -2,17 +2,18 @@ import type { Resolver } from "awilix";
 import type { HTTPMethod } from "find-my-way";
 import { join } from "node:path";
 import type { TErrorHandler } from "./http_error.js";
-import type { TAnyRequestMiddleware, TAnyResponseMiddleware } from "./middleware.js";
-import { Route, type TAnyRoute, type TRouteCreationOptionsShort } from "./route.js";
 import type {
-  TBodySchema,
-  TCookieSchema,
-  TFileSchema,
-  THeaderSchema,
-  TQueryStringSchema,
-  TServicesSchema,
+  TAnyRequestMiddleware,
+} from "./middleware.js";
+import {
+  Route,
+  type TAnyRoute,
+  type TRouteCreationOptionsShort,
+} from "./route.js";
+import type {
+  TRouteSchema,
+  TServicesSchema
 } from "./schema.js";
-
 
 export class Router {
   protected _resolvers: Record<string, Resolver<unknown>> = {};
@@ -20,8 +21,7 @@ export class Router {
   protected _childRouters: [string /* path */, Router][] = [];
 
   protected _requestMiddleware: TAnyRequestMiddleware[] = [];
-  protected _responseMiddleware : TAnyResponseMiddleware[] = [];
-  protected _errorHandlers : TErrorHandler[] = [];
+  protected _errorHandlers: TErrorHandler[] = [];
 
   addRoute(...routes: TAnyRoute[]) {
     this._routes.push(...routes);
@@ -32,20 +32,19 @@ export class Router {
     this._requestMiddleware.push(...middleware);
   }
 
-  useOnResponse(...middleware : TAnyResponseMiddleware[]) {
-    this._responseMiddleware.push(...middleware)
-  }
-
-  useOnError(...handlers : TErrorHandler[]) {
+  useOnError(...handlers: TErrorHandler[]) {
     this._errorHandlers.push(...handlers);
   }
 
-  mount(router : Router) : void;
-  mount(path: string, router: Router) : void;
-  mount(pathOrRouter : string | Router, router? : Router) {
-    if(pathOrRouter instanceof Router) this._childRouters.push(["", pathOrRouter]);
-    else if(router instanceof Router) this._childRouters.push([pathOrRouter, router!]);
-    else throw 'incorrect arguments for Router.mount function, expecting: (router: Router) OR (path : string, router: Router)!';
+  mount(router: Router): void;
+  mount(path: string, router: Router): void;
+  mount(pathOrRouter: string | Router, router?: Router) {
+    if (pathOrRouter instanceof Router)
+      this._childRouters.push(["", pathOrRouter]);
+    else if (router instanceof Router)
+      this._childRouters.push([pathOrRouter, router!]);
+    else
+      throw "incorrect arguments for Router.mount function, expecting: (router: Router) OR (path : string, router: Router)!";
   }
 
   register(dictionary: Record<string, Resolver<unknown>>): void;
@@ -75,199 +74,10 @@ Either:
   @example: router.register("name", asClass(...));`;
   }
 
-  GET<
-    TBody extends TBodySchema = {},
-    TQueryString extends TQueryStringSchema = {},
-    THeader extends THeaderSchema = {},
-    TCookie extends TCookieSchema = {},
-    TFile extends TFileSchema = {},
-    TServices extends TServicesSchema = [unknown, ...unknown[]]
-  >(
-    url: string,
-    options: TRouteCreationOptionsShort<
-      TBody,
-      TQueryString,
-      THeader,
-      TCookie,
-      TFile,
-      TServices
-    >
-  ) {
-    const r = new Route<
-      TBody,
-      TQueryString,
-      THeader,
-      TCookie,
-      TFile,
-      TServices
-    >({
-      ...options,
-      method: "GET",
-      url,
-    });
-
-    this.addRoute(r);
-    return r;
-  }
-
-  POST<
-    TBody extends TBodySchema,
-    TQueryString extends TQueryStringSchema,
-    THeader extends THeaderSchema,
-    TCookie extends TCookieSchema,
-    TFile extends TFileSchema,
-    TServices extends TServicesSchema
-  >(
-    url: string,
-    options: TRouteCreationOptionsShort<
-      TBody,
-      TQueryString,
-      THeader,
-      TCookie,
-      TFile,
-      TServices
-    >
-  ) {
-    const r = new Route<
-      TBody,
-      TQueryString,
-      THeader,
-      TCookie,
-      TFile,
-      TServices
-    >({
-      ...options,
-      method: "POST",
-      url,
-    });
-
-    this.addRoute(r);
-    return r;
-  }
-
-  PUT<
-    TBody extends TBodySchema,
-    TQueryString extends TQueryStringSchema,
-    THeader extends THeaderSchema,
-    TCookie extends TCookieSchema,
-    TFile extends TFileSchema,
-    TServices extends TServicesSchema
-  >(
-    url: string,
-    options: TRouteCreationOptionsShort<
-      TBody,
-      TQueryString,
-      THeader,
-      TCookie,
-      TFile,
-      TServices
-    >
-  ) {
-    const r = new Route<
-      TBody,
-      TQueryString,
-      THeader,
-      TCookie,
-      TFile,
-      TServices
-    >({
-      ...options,
-      method: "PUT",
-      url,
-    });
-
-    this.addRoute(r);
-    return r;
-  }
-
-  PATCH<
-    TBody extends TBodySchema,
-    TQueryString extends TQueryStringSchema,
-    THeader extends THeaderSchema,
-    TCookie extends TCookieSchema,
-    TFile extends TFileSchema,
-    TServices extends TServicesSchema
-  >(
-    url: string,
-    options: TRouteCreationOptionsShort<
-      TBody,
-      TQueryString,
-      THeader,
-      TCookie,
-      TFile,
-      TServices
-    >
-  ) {
-    const r = new Route<
-      TBody,
-      TQueryString,
-      THeader,
-      TCookie,
-      TFile,
-      TServices
-    >({
-      ...options,
-      method: "PUT",
-      url,
-    });
-
-    this.addRoute(r);
-    return r;
-  }
-
-  DELETE<
-    TBody extends TBodySchema,
-    TQueryString extends TQueryStringSchema,
-    THeader extends THeaderSchema,
-    TCookie extends TCookieSchema,
-    TFile extends TFileSchema,
-    TServices extends TServicesSchema
-  >(
-    url: string,
-    options: TRouteCreationOptionsShort<
-      TBody,
-      TQueryString,
-      THeader,
-      TCookie,
-      TFile,
-      TServices
-    >
-  ) {
-    const r = new Route<
-      TBody,
-      TQueryString,
-      THeader,
-      TCookie,
-      TFile,
-      TServices
-    >({
-      ...options,
-      method: "DELETE",
-      url,
-    });
-
-    this.addRoute(r);
-    return r;
-  }
-
-  route<
-    TBody extends TBodySchema,
-    TQueryString extends TQueryStringSchema,
-    THeader extends THeaderSchema,
-    TCookie extends TCookieSchema,
-    TFile extends TFileSchema,
-    TServices extends TServicesSchema
-  >(
+  route<TSchema extends TRouteSchema, TServices extends TServicesSchema>(
     method: HTTPMethod | Lowercase<HTTPMethod> | (string & {}),
     url: string,
-    options: TRouteCreationOptionsShort<
-      TBody,
-      TQueryString,
-      THeader,
-      TCookie,
-      TFile,
-      TServices
-    >
+    options: TRouteCreationOptionsShort<TSchema, TServices>
   ) {
     const route = new Route({
       url,
@@ -296,45 +106,34 @@ Either:
   }
 
   assembleRoutes() {
-    const routes : TAnyRoute[] = this._routes;
+    const routes: TAnyRoute[] = this._routes;
 
     // update url path of child routers
-    for(let [path, router] of this._childRouters) {
+    for (let [path, router] of this._childRouters) {
       const childRoutes = router.assembleRoutes();
-      for(let route of childRoutes) {
+      for (let route of childRoutes) {
         route.url = join(path, route.url);
         routes.push(route);
       }
     }
 
-    for(let route of routes) {
-      
+    for (let route of routes) {
       // add this router request middlewares
-      if(route.requestMiddleware == null) route.requestMiddleware = [];
+      if (route.requestMiddleware == null) route.requestMiddleware = [];
       route.requestMiddleware = [
         ...this._requestMiddleware,
-        ...route.requestMiddleware
+        ...route.requestMiddleware,
       ];
-      
-      // add this router response middlewares
-      if(route.responseMiddleware == null) route.responseMiddleware = [];
-      route.responseMiddleware = [
-        ...this._responseMiddleware,
-        ...route.responseMiddleware
-      ]
-      
+
       // add this router error handlers
-      if(route.errorHandler == null) route.errorHandler = [];
-      route.errorHandler = [
-        ...this._errorHandlers,
-        ...route.errorHandler
-      ]
+      if (route.errorHandler == null) route.errorHandler = [];
+      route.errorHandler = [...this._errorHandlers, ...route.errorHandler];
 
       // add this router dependency resolvers
       route.inject = {
         ...this._resolvers,
-        ...route.inject
-      }
+        ...route.inject,
+      };
     }
 
     return routes;

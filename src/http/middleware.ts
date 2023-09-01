@@ -1,65 +1,43 @@
 import type { Resolver } from "awilix";
+import type { TErrorHandler } from "./http_error.js";
 import type { TRequest } from "./request.js";
 import type { HTTPResponse } from "./response.js";
 import type {
-  TBodySchema,
-  TQueryStringSchema,
-  THeaderSchema,
-  TCookieSchema,
-  TFileSchema,
-  TServicesSchema,
+  TRouteSchema,
+  TServicesSchema
 } from "./schema.js";
-import type { TErrorHandler } from "./http_error.js";
 
 export interface TRequestMiddleware<
-  TBody extends TBodySchema,
-  TQueryString extends TQueryStringSchema,
-  THeader extends THeaderSchema,
-  TCookie extends TCookieSchema,
-  TFile extends TFileSchema,
+  TSchema extends TRouteSchema,
   TServices extends TServicesSchema
 > {
   // schema
-  body?: TBody;
-  queryString?: TQueryString;
-  header?: THeader;
-  cookie?: TCookie;
-  file?: TFile;
+  schema?: TSchema;
 
   // injections
-  inject? : Record<string, Resolver<unknown>>
+  inject?: Record<string, Resolver<unknown>>;
 
-  errorHandlers? : TErrorHandler | TErrorHandler[];
-  responseMiddleware? : TAnyResponseMiddleware[];
+  errorHandlers?: TErrorHandler | TErrorHandler[];
 
   handle(
-    req: TRequest<TBody, TQueryString, THeader, TCookie, TFile> &
-      TRegisterDependency,
+    req: TRequest<TSchema> & TRegisterDependency,
     ...services: TServices
   ): unknown | void | Error | HTTPResponse | Promise<Error | HTTPResponse>;
 }
 
 export interface TResponseMiddleware {
   handle(
-    response : HTTPResponse
-  ) : HTTPResponse | Error | Promise<HTTPResponse | Error>
+    response: HTTPResponse
+  ): HTTPResponse | Error | Promise<HTTPResponse | Error>;
 }
-
 
 type TRegisterDependency = {
   registerDependency(name: string, provider: Resolver<unknown>): void;
   registerDependency(register: Record<string, Resolver<unknown>>): void;
 };
 
-export type TAnyRequestMiddleware = TRequestMiddleware<any, any, any, any, any, any>;
+export type TAnyRequestMiddleware = TRequestMiddleware<any, any>;
+
+export function requestMiddleware() {}
 
 
-export function requestMiddleware() {
-  
-}
-
-export type TAnyResponseMiddleware = TResponseMiddleware
-
-export function responseMiddleware() {
-  
-}

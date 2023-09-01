@@ -16,141 +16,21 @@ These are all battle tested and widely used by developers and have active mainta
 
 ______________________________________
 ## Why 🔥 Spark?  
-✅ Highly opinionated, demanding less overhead and decisions non-related to the problem at hand (even tough it creates a small learning curve);  
+✅ Highly opinionated, demanding less overhead and decisions not related to the problem at hand (even tough it creates a small learning curve);  
 ✅ Bits of magic, code wiring is done mostly though conventions cutting most of the boilerplate required to spin up an ideia and keeping configurations to a minimum;  
 ✅ Written in Typescript, so your IDE can boost you even higher!  
-✅ Fast to compile and test, using esbuild / vitest;  
-✅ Sane amount of dependencies (trying to keep them to a minimum but for some tasks we still need them);  
+✅ Fast to compile and test, using tsx / vitest;  
+✅ Sane amount of dependencies (trying to keep them to a minimum but for some tasks we still need them!);  
 ✅ Open source (even if it has a single maintainer, if you enjoy the project and wanna contribute feel free to!)
 ________________________________  
 
 ## Installation
-**This is not a npm package!**   
-Its meant to be a template, in the future there shall be a CLI for fast project scaffolding and what not.
 
-For now just clone this repo:
-```bash
-  git clone Nonanick/spark my_awesome_project
-```
+For now it's not in the npm repo and if there's any interest you should clone this repository
+
 _________________________
 
 ## API routes
-Creating an API route is as easy as creating a file!  
-**Seriously!**  
-Spark uses the directory as a way to express your routes, no need to add them to the server manually. Once you create a file in the "./src/app/routes" following the pattern "route_name.http_method.ts" it will be mapped to a route in the HTTP server!  
-
-_____________________________
-**Example:**  
-Consider the following directory structure inside "app/routes":
-```
-/authentication
-|  - ./login.post.ts
-|  - ./logout.post.ts
-/index.get.ts
-```
-And the content of the files are:  
-*/authentication/login.post.ts*: 
-```ts
-import { createRoute } from "#http/route";
-
-export default createRoute({
-  handler(req) {
-    return 'login'; 
-  }
-});
-```
-*./authentication/logout.post.ts*: 
-```ts
-import { createRoute } from "#http/route";
-
-export default createRoute({
-  handler(req) {
-    return 'logout'; 
-  }
-});
-```
-
-*./index.get.ts*:
-```ts
-import { createRoute } from "#http/route";
-
-export default createRoute({
-  handler(req) {
-    return 'hello from root!'; 
-  }
-});
-```
-
-**Thats it!**  
-Now if you run your server it will expose 3 endpoints:
-- **POST "/authentication/login"** which will reply 'login'
-- **POST "/authentication/logout"** which will reply 'logout'
-- **GET "/"** which will reply 'hello from root'
-_______________________________
-
-### Exporting more than one route per file
-If you dislike the single file per route style you can export more than one route per file using named exports, all exports in a file that happen to be a HTTP Route will be autoloaded if they reside in the app/routes directory and follow the "route_name.http_method.ts" pattern!
-
-**Example:**  
-*/document/index.resource.ts*
-```ts
-import { createRoute } from "#http/route";
-
-export const createDocument = createRoute({
-  method : 'post',
-  url : '/',
-  handler(req) {
-    // ... create the document 
-  }
-});
-
-export const deleteDocument = createRoute({
-  method : 'delete',
-  url : '/',
-  handler(req) {
-    // ... delete the document 
-  }
-});
-
-export const listAllDocuments = createRoute({
-  method : 'get',
-  url : '/',
-  handler(req) {
-    // ... return all document 
-  }
-});
-
-export const show = createRoute({
-  method : 'get',
-  url : '/:documentId',
-  handler(req) {
-    // ... show document 
-  }
-});
-```
-> ⚠️ The "resource" in the file name is NOT a valid HTTP method name, but it is used, along with "route", as a **generic** http method, this file will be autoloaded and will create 4 endpoints, as expected!
-
-The "method" in the filename can be ovewriten by the route create options, just as its URL; If possible this behaviour should be avoided, if you want to specify a method inside the route creation you should use "route" as the http_method in the filename (eg: index.route.ts);
-
-___________________________
-
-### Passing URL parameters to the route
-The handler will be routed using ["find-my-way"](https://https://github.com/delvedor/find-my-way) router, the same used by the fastify and restify framework, all path options and patterns it supports 🔥 Spark also does!  
-If you wanna see which path options are available [click here!](https://github.com/delvedor/find-my-way#supported-path-formats)  
-
-#### Unsupported path parameters by the file system
-If a path parameter cannot be expressed in a way that's allowed by the file system you can override the 'url' in the "createRoute" options:
-```ts
-import { createRoute } from "#http/route";
-
-export default createRoute({
-  // this url contains a RegExp, supported by the 'find-my-way' router!
-  url : ':hour(^\\d{2})h:minute(^\\d{2})m',
-  handler(req) {
-    return req.urlParams; 
-  }
-});
-```
 _____________________
 
 ### Receiving JSON data from request body

@@ -21,6 +21,7 @@ import type {
   TFileSchema,
   THeaderSchema,
   TQueryStringSchema,
+  TRouteSchema,
 } from "./schema.js";
 import type { TRequest } from "./request.js";
 type TAnyHTTPMethod = HTTPMethod | Lowercase<HTTPMethod> | (string & {});
@@ -53,18 +54,15 @@ export class Handler<
   method: TAnyHTTPMethod = "GET";
   url: string = "/";
 
-  bodySchema: TBodySchema | undefined = undefined;
-  fileSchema: TFileSchema | undefined = undefined;
-  querySchema: TQueryStringSchema | undefined = undefined;
-  cookieSchema: TCookieSchema | undefined = undefined;
-  headerSchema: THeaderSchema | undefined = undefined;
+  schema? : TRouteSchema;
+
 
   routeHandler?: (
-    req: TRequest<any, any, any, any, any>,
+    req: TRequest<any>,
     ...services: unknown[]
   ) => unknown | void;
   #routeHandlerServices?: string[];
-  get routeHandlerServices() {
+  get routeHandlerServices() {[]
     if (this.#routeHandlerServices == null) {
       this.#routeHandlerServices =
         this.routeHandler != null
@@ -114,13 +112,7 @@ export class Handler<
   #requestFactory?: RequestFactory<Version>;
   private get requestFactory() {
     if (this.#requestFactory == null) {
-      this.#requestFactory = new RequestFactory<Version>(this.container, {
-        body: this.bodySchema,
-        files: this.fileSchema,
-        cookies: this.cookieSchema,
-        header: this.headerSchema,
-        query: this.querySchema,
-      });
+      this.#requestFactory = new RequestFactory<Version>(this.container, this.schema ?? {});
     }
     return this.#requestFactory!;
   }

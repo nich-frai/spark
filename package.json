@@ -6,8 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch ./run.ts",
-    "generate": "prisma generate",
-    "migrate": "prisma migrate dev",
+    "build" : "tsc -p tsconfig.build.json",
     "test": "vitest --config ./vitest.config.ts",
     "coverage": "vitest --config ./vitest.config.ts run coverage"
   },
@@ -48,14 +47,12 @@
   "dependencies": {
     "@sinclair/typebox": "^0.29.6",
     "awilix": "^8.0.1",
-    "busboy": "^1.6.0",
     "dotenv": "^16.3.1",
     "find-my-way": "^7.6.2",
     "nanoid": "^4.0.2",
     "pino": "^8.14.2"
   },
   "devDependencies": {
-    "@types/busboy": "^1.5.0",
     "@types/node": "^20.4.5",
     "esbuild": "^0.18.17",
     "kleur": "^4.1.5",

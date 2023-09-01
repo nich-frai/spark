@@ -3,7 +3,6 @@ import type { HTTPMethod } from "find-my-way";
 import type { TErrorHandler } from "./http_error.js";
 import type {
   TAnyRequestMiddleware,
-  TAnyResponseMiddleware,
 } from "./middleware.js";
 import type { TRequest } from "./request.js";
 import type {
@@ -36,7 +35,6 @@ export class Route<
   fileOptions?: TFileOptions;
 
   requestMiddleware?: TAnyRequestMiddleware[];
-  responseMiddleware?: TAnyResponseMiddleware[];
   errorHandler?: TErrorHandler[];
 
   inject: Record<string, Resolver<unknown>> = {};
@@ -52,7 +50,6 @@ export class Route<
     this.fileOptions = options.fileProcessingOptions;
 
     this.requestMiddleware = options.requestMiddleware;
-    this.responseMiddleware = options.responseMiddleware;
     this.errorHandler = options.errorHandler;
 
     this.handler = options.handler;
@@ -72,7 +69,6 @@ export interface TRouteCreationOptions<
     : never;
 
   requestMiddleware?: TAnyRequestMiddleware[];
-  responseMiddleware?: TAnyResponseMiddleware[];
   errorHandler?: TErrorHandler[];
 
   configure?: TConfigureRoute;

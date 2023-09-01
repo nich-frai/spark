@@ -7,6 +7,7 @@ import type {
   TFileSchema,
   THeaderSchema,
   TQueryStringSchema,
+  TRouteSchema,
 } from "./schema.js";
 import type { AwilixContainer, Resolver } from "awilix";
 import { BadRequest } from "./http_error.js";
@@ -205,12 +206,7 @@ function extractContentType(header: string | undefined) {
   return header;
 }
 
-export interface TRequestFactoryOptions {
-  files?: TFileSchema;
-  body?: TBodySchema;
-  header?: THeaderSchema;
-  query?: TQueryStringSchema;
-  cookies?: TCookieSchema;
+export interface TRequestFactoryOptions extends TRouteSchema {
 
   maxBodySize?: number;
 }

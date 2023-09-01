@@ -14,11 +14,7 @@ export class HandlerFactory {
       this.rootContainer.createScope()
     );
 
-    handler.bodySchema = route.body
-    handler.cookieSchema = route.cookie
-    handler.fileSchema = route.file
-    handler.headerSchema = route.header
-    handler.querySchema = route.queryString
+    handler.schema = route.schema
     
     handler.requestMiddleware = route.requestMiddleware ?? []
     handler.responseMiddleware = route.responseMiddleware  ?? []
